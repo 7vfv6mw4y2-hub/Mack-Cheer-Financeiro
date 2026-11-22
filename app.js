@@ -1,6 +1,6 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 const SUPABASE_URL='https://xzlyhobauukyoffvuymi.supabase.co';
-const SUPABASE_ANON_KEY='COLE_A_CHAVE_ANON';
+const SUPABASE_ANON_KEY='sb_publishable_gvF0mavCgeBZe_CCtuQ11Q_kQGHPSYB';
 const sb=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 const $=id=>document.getElementById(id); const fmt=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 $('date').value=new Date().toISOString().slice(0,10);
