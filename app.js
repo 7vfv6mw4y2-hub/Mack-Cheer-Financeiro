@@ -2,6 +2,7 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const SUPABASE_URL='https://xzlyhobauukyoffvuymi.supabase.co';
 const SUPABASE_ANON_KEY='sb_publishable_gvF0mavCgeBZe_CCtuQ11Q_kQGHPSYB';
 const sb=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+let editingId = null;
 const $=id=>document.getElementById(id); const fmt=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 $('date').value=new Date().toISOString().slice(0,10);
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();$('auth-msg').textContent='Entrando…';let {error}=await sb.auth.signInWithPassword({email:$('email').value,password:$('password').value});$('auth-msg').textContent=error?.message||'';if(!error)await init();});
