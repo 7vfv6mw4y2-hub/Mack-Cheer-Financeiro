@@ -43,7 +43,21 @@ $('entry-form').addEventListener('submit',async e=>{
 $('filter').onchange=load;
 async function init(){const {data:{session}}=await sb.auth.getSession();if(session){$('auth').classList.add('hidden');$('app').classList.remove('hidden');$('logout').classList.remove('hidden');await load();}}
 async function load(){const {data,error}=await sb.from('transactions').select('*').order('date',{ascending:false});if(error){$('entry-msg').textContent=error.message;return;}const all=data||[],month=new Date().toISOString().slice(0,7);const paid=all.filter(x=>x.status==='pago');$('balance').textContent=fmt(paid.reduce((s,x)=>s+(x.type==='entrada'?x.amount:-x.amount),0));$('income').textContent=fmt(paid.filter(x=>x.type==='entrada'&&x.date.startsWith(month)).reduce((s,x)=>s+x.amount,0));$('expense').textContent=fmt(paid.filter(x=>x.type==='despesa'&&x.date.startsWith(month)).reduce((s,x)=>s+x.amount,0));$('pending').textContent=fmt(all.filter(x=>x.status==='pendente').reduce((s,x)=>s+x.amount,0));let f=$('filter').value;let shown=all.filter(x=>f==='all'||x.type===f||x.status===f);$('rows').innerHTML=shown.map(x=>`<tr><td>${x.date}</td><td>${esc(x.description)}${x.payer?`<div class="muted">${esc(x.payer)}</div>`:''}</td><td>${esc(x.category||'—')}</td><td><span class="tag">${x.status}</span></td><td class="${x.type==='entrada'?'positive':'negative'}">${x.type==='entrada'?'+':'−'} ${fmt(x.amount)}</td><td><button class="edit" data-id="${x.id}">Editar</button>
-<button class="delete" data-id="${x.id}" aria-label="Excluir">×</button></td></tr>`).join('');document.querySelectorAll('.delete').forEach(b=>b.onclick=async()=>{if(confirm('Excluir este lançamento?')){const {error}=await sb.from('transactions').delete().eq('id',b.dataset.id);if(error)alert(error.message);else load();}});}
+<button class="delete" data-id="${x.id}" aria-label="Excluir">×</button></td></tr>`).join('');document.querySelectorAll('.edit').forEach(b=>b.onclick=()=>{
+  const x=shown.find(t=>String(t.id)===b.dataset.id);
+  if(!x)return;
+
+  editingId=x.id;
+  $('kind').value=x.type;
+  $('description').value=x.description;
+  $('amount').value=x.amount;
+  $('date').value=x.date;
+  $('category').value=x.category||'';
+  $('status').value=x.status;
+  $('payer').value=x.payer||'';
+
+  $('entry-msg').textContent='Editando lançamento...';
+});document.querySelectorAll('.delete').forEach(b=>b.onclick=async()=>{if(confirm('Excluir este lançamento?')){const {error}=await sb.from('transactions').delete().eq('id',b.dataset.id);if(error)alert(error.message);else load();}});}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 sb.auth.onAuthStateChange((_event,session)=>{if(session)init();});
 init();
