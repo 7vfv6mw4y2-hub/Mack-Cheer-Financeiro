@@ -57,7 +57,15 @@ async function load(){const {data,error}=await sb.from('transactions').select('*
   $('payer').value=x.payer||'';
 
   $('entry-msg').textContent='Editando lançamento...';
-});document.querySelectorAll('.delete').forEach(b=>b.onclick=async()=>{if(confirm('Excluir este lançamento?')){const {error}=await sb.from('transactions').delete().eq('id',b.dataset.id);if(error)alert(error.message);else load();}});}
+});document.querySelectorAll('.delete').forEach(b=>b.onclick=async()=>{if(confirm('Excluir este lançamento?')){const {error}=await sb.from('transactions').delete().eq('id',b.dataset.id);if(error)alert(error.message);else load();}});}document.querySelectorAll('.tab').forEach(button=>{
+  button.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(tab=>tab.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content=>content.classList.add('hidden'));
+
+    button.classList.add('active');
+    $(button.dataset.tab).classList.remove('hidden');
+  });
+});
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 sb.auth.onAuthStateChange((_event,session)=>{if(session)init();});
 init();
