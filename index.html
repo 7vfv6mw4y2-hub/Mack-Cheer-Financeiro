@@ -43,8 +43,42 @@
 
 <div id="planejamento" class="tab-content hidden">
   <div class="panel">
-    <h2>Planejamento financeiro</h2>
-    <p>Organização financeira do Mack Lions</p>
+    <h2>Planejamento financeiro 2026</h2>
+
+    <form id="planning-form" class="formgrid">
+      <select id="planning-type">
+        <option value="entrada">Entrada</option>
+        <option value="despesa">Despesa</option>
+      </select>
+
+      <input id="planning-description" placeholder="Descrição" required>
+
+      <select id="planning-category">
+        <option value="Mensalidades">Mensalidades</option>
+        <option value="Tryout">Tryout</option>
+        <option value="Entradas específicas">Entradas específicas</option>
+        <option value="Treinadores">Treinadores</option>
+        <option value="Campeonatos">Campeonatos</option>
+        <option value="Uniformes">Uniformes</option>
+        <option value="Cheer Mix">Cheer Mix</option>
+        <option value="Outros">Outros</option>
+      </select>
+
+      <input id="planning-amount" type="number" min="0.01" step="0.01" placeholder="Valor (R$)" required>
+
+      <select id="planning-status">
+        <option value="conferido">Conferido</option>
+        <option value="estimado">Estimado</option>
+        <option value="conferir">A conferir</option>
+      </select>
+
+      <button type="submit">Adicionar valor</button>
+    </form>
+  </div>
+
+  <div class="panel">
+    <h2>Valores cadastrados</h2>
+    <div id="planning-list"></div>
   </div>
 </div>
 
