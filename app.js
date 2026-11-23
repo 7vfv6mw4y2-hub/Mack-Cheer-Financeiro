@@ -44,7 +44,7 @@ $('entry-form').addEventListener('submit',async e=>{
 $('filter').onchange=load;
 async function init(){const {data:{session}}=await sb.auth.getSession();if(session){$('auth').classList.add('hidden');$('app').classList.remove('hidden');$('logout').classList.remove('hidden');await load();}}
 async function load(){const {data,error}=await sb.from('transactions').select('*').order('date',{ascending:false});if(error){$('entry-msg').textContent=error.message;return;}const all=data||[],month=new Date().toISOString().slice(0,7);const paid=all.filter(x=>x.status==='pago');$('balance').textContent=fmt(paid.reduce((s,x)=>s+(x.type==='entrada'?x.amount:-x.amount),0));$('income').textContent=fmt(paid.filter(x=>x.type==='entrada'&&x.date.startsWith(month)).reduce((s,x)=>s+x.amount,0));$('expense').textContent=fmt(paid.filter(x=>x.type==='despesa'&&x.date.startsWith(month)).reduce((s,x)=>s+x.amount,0));$('pending').textContent=fmt(all.filter(x=>x.status==='pendente').reduce((s,x)=>s+x.amount,0)); const reportMonth=$('report-month').value;
-const reportItems=paid.filter(x=>x.date.startsWith(reportMonth));
+const reportItems=paid.filter(x=>x.date.startsWith(reportMonth));console.log(reportMonth, paid.map(x=>x.date));
 
 const reportIncome=reportItems
   .filter(x=>x.type==='entrada')
