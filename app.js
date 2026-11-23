@@ -307,42 +307,63 @@ $('import-bank').addEventListener('click', async () => {
 
     
 
+
 function parseCSV(content) {
   const lines = content
     .replace(/^\uFEFF/, '')
-    .split(/\r?\n/)
-    .map(line => line.trim())
-    .filter(line => line.length > 0);
+    .split(/\r?\n/);
 
-  if (!lines.length) return [];
+  // Localiza o cabeçalho, mesmo depois das informações do banco
+  const headerIndex = lines.findIndex(line => {
+    const h = line.normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
 
-  const firstLine = lines[0];
-  const separators = ['|', ';', '\t', ','];
+    return h.includes('data lancamento') &&
+           h.includes('entrada') &&
+           h.includes('saida');
+  });
 
-  const delimiter = separators
-    .map(sep => ({
-      sep,
-      count: firstLine.split(sep).length
-    }))
-    .sort((a, b) => b.count - a.count)[0].sep;
+  if (headerIndex === -1) {
+    throw new Error('Não encontrei o cabeçalho do extrato C6.');
+  }
+
+  const headerLine = lines[headerIndex];
+  const delimiter = headerLine.includes(';') ? ';' : ',';
+
+  function splitLine(line) {
+    const result = [];
+    let value = '';
+    let quoted = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+
+      if (c === '"') {
+        if (quoted && line[i + 1] === '"') {
+          value += '"';
+          i++;
+        } else {
+          quoted = !quoted;
+        }
+      } else if (c === delimiter && !quoted) {
+        result.push(value.trim());
+        value = '';
+      } else {
+        value += c;
+      }
+    }
+
+    result.push(value.trim());
+    return result;
+  }
 
   return lines
-    .map(line => {
-      let clean = line;
-
-      if (delimiter === '|') {
-        clean = clean.replace(/^\|/, '').replace(/\|$/, '');
-      }
-
-      return clean.split(delimiter).map(cell =>
-        cell.trim().replace(/^"|"$/g, '')
-      );
-    })
-    .filter(row =>
-      row.length > 1 &&
-      !row.every(cell => /^[-:]+$/.test(cell))
-    );
+    .slice(headerIndex)
+    .filter(line => line.trim())
+    .map(splitLine);
 }
+
 
     function normalize(value) {
       return String(value || '')
@@ -389,10 +410,7 @@ const rows = parseCSV(text);
 console.log('CONTEÚDO DO CSV:', text.slice(0, 2000));
 console.log('LINHAS IDENTIFICADAS:', parseCSV(text));
 if (rows.length < 2) {
-  throw new Error(
-    'Linhas encontradas: ' + rows.length +
-    '. Conteúdo lido: ' + text.slice(0, 500)
-  );
+  throw new Error('O arquivo não possui movimentações.');
 }
 
 const headerIndex = rows.findIndex(row => {
