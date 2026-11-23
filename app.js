@@ -611,7 +611,7 @@ async function loadAthletes() {
         <option value="${a.id}">${esc(a.name)}</option>
       `;
     });
-  $('athlete-list').innerHTML = athletes.length
+   $('athlete-list').innerHTML = athletes.length
     ? athletes.map(a => `
         <div style="padding:12px 0;border-bottom:1px solid #ddd">
           <button
@@ -630,9 +630,8 @@ async function loadAthletes() {
         </div>
       `).join('')
     : '<p>Nenhuma atleta cadastrada ainda.</p>';
-      `).join('')
-    : '<p>Nenhuma atleta cadastrada ainda.</p>';
-      document.querySelectorAll('.athlete-profile-btn').forEach(button => {
+
+  document.querySelectorAll('.athlete-profile-btn').forEach(button => {
     button.onclick = () => openAthleteFinancial(button.dataset.id);
   });
 }
