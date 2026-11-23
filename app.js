@@ -281,9 +281,4 @@ function esc(s) {
   }[c]));
 }
 
-sb.auth.onAuthStateChange((_event, session) => {
-  if (session) init();
-});
-
 init();
-
