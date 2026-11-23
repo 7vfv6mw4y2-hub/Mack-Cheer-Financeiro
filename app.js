@@ -709,6 +709,7 @@ async function openAthleteFinancial(athleteId) {
             <th>Categoria</th>
             <th>Status</th>
             <th>Valor</th>
+            <th>Ações</th>
           </tr>
         </thead>
 
@@ -718,8 +719,11 @@ async function openAthleteFinancial(athleteId) {
               <td>${esc(x.date)}</td>
               <td>${esc(x.description)}</td>
               <td>${esc(x.category || '—')}</td>
-              <td>${esc(x.status)}</td>
+                           <td>${esc(x.status)}</td>
               <td>${x.type === 'entrada' ? '+' : '−'} ${fmt(x.amount)}</td>
+              <td>
+                <button class="athlete-delete" data-id="${x.id}" type="button">Excluir</button>
+              </td>
             </tr>
           `).join('')}
         </tbody>
@@ -728,6 +732,25 @@ async function openAthleteFinancial(athleteId) {
 
     ${items.length ? '' : '<p>Nenhum lançamento vinculado a esta atleta ainda.</p>'}
   `;
+
+    document.querySelectorAll('.athlete-delete').forEach(button => {
+    button.onclick = async () => {
+      if (!confirm('Tem certeza que deseja excluir este lançamento?')) return;
+
+      const { error } = await sb
+        .from('transactions')
+        .delete()
+        .eq('id', button.dataset.id);
+
+      if (error) {
+        alert('Erro ao excluir: ' + error.message);
+        return;
+      }
+
+      await load();
+      await openAthleteFinancial(athleteId);
+    };
+  });
 
   $('close-athlete-profile').onclick = () => {
     panel.classList.add('hidden');
