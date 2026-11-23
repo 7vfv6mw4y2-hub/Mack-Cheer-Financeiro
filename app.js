@@ -384,13 +384,31 @@ function parseCSV(content) {
       return '';
     }
 
-    const rows = parseCSV(text);
+    
+const rows = parseCSV(text);
 
-    if (rows.length < 2) {
-      throw new Error('O arquivo não possui movimentações.');
-    }
+if (rows.length < 2) {
+  throw new Error('O arquivo não possui movimentações.');
+}
 
-    const headers = rows.shift().map(normalize);
+const headerIndex = rows.findIndex(row => {
+  const cells = row.map(normalize).join('|');
+
+  return cells.includes('datalancamento') &&
+         cells.includes('entrada') &&
+         cells.includes('saida');
+});
+
+if (headerIndex === -1) {
+  throw new Error(
+    'Cabeçalho não localizado. Colunas encontradas: ' +
+    rows.slice(0, 5).map(r => r.join(' / ')).join(' | ')
+  );
+}
+
+const headers = rows[headerIndex].map(normalize);
+rows.splice(0, headerIndex + 1);
+
 
     const findColumn = (...names) =>
       headers.findIndex(h => names.some(n => h.includes(n)));
