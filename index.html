@@ -22,7 +22,12 @@
   <p id="import-msg" class="muted"></p>
 </div>
 
-<div class="panel"><h2>Novo lançamento</h2><form id="entry-form" class="formgrid"><select id="kind"><option value="entrada">Entrada</option><option value="despesa">Despesa</option></select><input id="description" placeholder="Descrição" required><input id="amount" type="number" min="0.01" step="0.01" placeholder="Valor (R$)" required><input id="date" type="date" required><select id="category"><option>Arrecadação</option><option>Inscrição</option><option>Uniforme</option><option>Transporte</option><option>Materiais</option><option>Evento / Showcase</option><option>Alimentação</option><option>Reembolso</option><option>Patrocínio</option><option>Outros</option></select><select id="status"><option value="pago">Pago / recebido</option><option value="pendente">Pendente</option></select><input id="payer" placeholder="Quem pagou / recebeu (opcional)"><button>Adicionar lançamento</button></form><p id="entry-msg" class="muted"></p></div>
+<div class="panel"><h2>Novo lançamento</h2><form id="entry-form" class="formgrid"><select id="kind"><option value="entrada">Entrada</option><option value="despesa">Despesa</option></select><input id="description" placeholder="Descrição" required><input id="amount" type="number" min="0.01" step="0.01" placeholder="Valor (R$)" required><input id="date" type="date" required><select id="category"><option>Arrecadação</option><option>Inscrição</option><option>Uniforme</option><option>Transporte</option><option>Materiais</option><option>Evento / Showcase</option><option>Alimentação</option><option>Reembolso</option><option>Patrocínio</option><option>Outros</option></select><select id="status"><option value="pago">Pago / recebido</option><option value="pendente">Pendente</option></select><select id="athlete-link">
+  <option value="">Nenhuma atleta vinculada</option>
+</select>
+
+<input id="payer" placeholder="Quem pagou / recebeu (opcional)">
+<button>Adicionar lançamento</button>Adicionar lançamento</button></form><p id="entry-msg" class="muted"></p></div>
 <div class="panel"><div class="list-head"><h2>Movimentações</h2><select id="filter"><option value="all">Todas</option><option value="entrada">Entradas</option><option value="despesa">Despesas</option><option value="pendente">Pendentes</option></select></div><div class="table-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Status</th><th>Valor</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></div></div><div id="relatorios" class="tab-content hidden">
 
   <div class="panel">
