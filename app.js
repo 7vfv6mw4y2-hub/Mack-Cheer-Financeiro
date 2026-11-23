@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 const SUPABASE_URL = 'https://xzlyhobauukyoffvuymi.supabase.co';
@@ -670,36 +669,50 @@ async function loadAthleteTransactions() {
 
   const all = transactions || [];
 
-  function renderTable(items) {
-    if (!items.length) return '<p>Nenhuma movimentação cadastrada.</p>';
+  function renderTable(items, allowLink = false) {
+  if (!items.length) return '<p>Nenhuma movimentação cadastrada.</p>';
 
-    return `
-      <div class="table-wrap">
-        <table>
-          <thead>
+  return `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Descrição</th>
+            <th>Categoria</th>
+            <th>Status</th>
+            <th>Valor</th>
+            ${allowLink ? '<th>Vincular</th>' : ''}
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(x => `
             <tr>
-              <th>Data</th>
-              <th>Descrição</th>
-              <th>Categoria</th>
-              <th>Status</th>
-              <th>Valor</th>
+              <td>${esc(x.date)}</td>
+              <td>${esc(x.description)}</td>
+              <td>${esc(x.category || '—')}</td>
+              <td>${esc(x.status)}</td>
+              <td>${x.type === 'entrada' ? '+' : '−'} ${fmt(x.amount)}</td>
+              ${allowLink ? `
+                <td>
+                  <select class="link-athlete-select" data-id="${x.id}">
+                    <option value="">Escolher atleta</option>
+                    ${(athletes || []).map(a => `
+                      <option value="${a.id}">${esc(a.name)}</option>
+                    `).join('')}
+                  </select>
+                  <button type="button" class="link-athlete-btn" data-id="${x.id}">
+                    Salvar
+                  </button>
+                </td>
+              ` : ''}
             </tr>
-          </thead>
-          <tbody>
-            ${items.map(x => `
-              <tr>
-                <td>${esc(x.date)}</td>
-                <td>${esc(x.description)}</td>
-                <td>${esc(x.category || '—')}</td>
-                <td>${esc(x.status)}</td>
-                <td>${x.type === 'entrada' ? '+' : '−'} ${fmt(x.amount)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    `;
-  }
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
 
   container.innerHTML = `
     ${(athletes || []).map(athlete => {
@@ -717,9 +730,42 @@ async function loadAthleteTransactions() {
     <div style="margin:24px 0">
       <h3>Sem atleta vinculada</h3>
       <p class="muted">Movimentações que ainda precisam ser organizadas.</p>
-      ${renderTable(all.filter(x => !x.athlete_id))}
+      ${renderTable(all.filter(x => !x.athlete_id), true)}
     </div>
   `;
+  container.querySelectorAll('.link-athlete-btn').forEach(button => {
+    button.addEventListener('click', async () => {
+      const id = button.dataset.id;
+      const select = container.querySelector(
+        `.link-athlete-select[data-id="${id}"]`
+      );
+
+      const athleteId = select.value;
+
+      if (!athleteId) {
+        alert('Escolha uma atleta antes de salvar.');
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = 'Salvando...';
+
+      const { error } = await sb
+        .from('transactions')
+        .update({ athlete_id: athleteId })
+        .eq('id', id);
+
+      if (error) {
+        alert('Erro ao vincular: ' + error.message);
+        button.disabled = false;
+        button.textContent = 'Salvar';
+        return;
+      }
+
+      await loadAthleteTransactions();
+      await load();
+    });
+  });  
 }
 async function openAthleteFinancial(athleteId) {
   const panel = $('athlete-financial');
