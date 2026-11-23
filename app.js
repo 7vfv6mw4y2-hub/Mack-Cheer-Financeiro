@@ -7,7 +7,7 @@ const $=id=>document.getElementById(id);
 let planningEditingId = null;
 
 $('planning-form').addEventListener('submit', async e => {
-  e.preventDefault();
+  e.preventDefault() alert('O formulário foi acionado!');
 
   const payload = {
     type: $('planning-type').value,
