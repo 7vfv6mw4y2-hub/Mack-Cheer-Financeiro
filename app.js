@@ -16,7 +16,7 @@ $('date').value = new Date().toISOString().slice(0, 10);
 $('report-month').value = new Date().toISOString().slice(0, 7);
 $('report-month').onchange = load;
 $('filter').onchange = load;
-
+$('statement-month').onchange = load;
 $('login-form').addEventListener('submit', async e => {
   e.preventDefault();
   $('auth-msg').textContent = 'Entrando…';
@@ -236,7 +236,14 @@ const month = new Date().toISOString().slice(0, 7);
     : '<p>Nenhuma despesa neste mês.</p>';
 
   const f = $('filter').value;
-  const shown = all.filter(x => f === 'all' || x.type === f || x.status === f);
+const selectedMonth = $('statement-month').value;
+
+const shown = all.filter(x => {
+  const matchesType = f === 'all' || x.type === f || x.status === f;
+  const matchesMonth = !selectedMonth || x.date.startsWith(selectedMonth);
+
+  return matchesType && matchesMonth;
+});
 
   $('rows').innerHTML = shown.map(x => `
     <tr>
