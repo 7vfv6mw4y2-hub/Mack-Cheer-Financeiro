@@ -253,7 +253,7 @@ const month = new Date().toISOString().slice(0, 7);
     </tr>
   `).join('');
 
-  document.querySelectorAll('.edit').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.edit').forEach(b => b.onclick = async () => {
     const x = shown.find(t => String(t.id) === b.dataset.id);
     if (!x) return;
 
@@ -321,9 +321,6 @@ $('import-bank').addEventListener('click', async () => {
     }
 
     const text = (await file.text()).replace(/^\uFEFF/, '');
-
-    
-
 
 function parseCSV(content) {
   const lines = content
