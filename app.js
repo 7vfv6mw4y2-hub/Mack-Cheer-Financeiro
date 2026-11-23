@@ -548,6 +548,7 @@ $('athlete-form').addEventListener('submit', async e => {
 
   const payload = {
     user_id: user.id,
+    athlete_id: $('athlete-link').value || null,
     name: $('athlete-name').value.trim(),
     team: $('athlete-team').value.trim() || null,
     scholarship_percentage: Number($('athlete-scholarship').value),
@@ -586,7 +587,17 @@ async function loadAthletes() {
   }
 
   const athletes = data || [];
+  const select = $('athlete-link');
 
+  select.innerHTML = '<option value="">Nenhuma atleta vinculada</option>';
+
+  athletes
+    .filter(a => a.is_active)
+    .forEach(a => {
+      select.innerHTML += `
+        <option value="${a.id}">${esc(a.name)}</option>
+      `;
+    });
   $('athlete-list').innerHTML = athletes.length
     ? athletes.map(a => `
         <div style="padding:12px 0;border-bottom:1px solid #ddd">
