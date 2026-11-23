@@ -3,7 +3,33 @@ const SUPABASE_URL='https://xzlyhobauukyoffvuymi.supabase.co';
 const SUPABASE_ANON_KEY='sb_publishable_gvF0mavCgeBZe_CCtuQ11Q_kQGHPSYB';
 const sb=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 let editingId = null;
-const $=id=>document.getElementById(id); const fmt=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const $=id=>document.getElementById(id); 
+let planningEditingId = null;
+
+$('planning-form').addEventListener('submit', async e => {
+  e.preventDefault();
+
+  const payload = {
+    type: $('planning-type').value,
+    description: $('planning-description').value,
+    category: $('planning-category').value,
+    amount: Number($('planning-amount').value),
+    status: $('planning-status').value
+  };
+
+  const { error } = await sb
+    .from('planning_entries')
+    .insert(payload);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  e.target.reset();
+  await loadPlanning();
+});
+const fmt=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 $('date').value=new Date().toISOString().slice(0,10);$('report-month').value=new Date().toISOString().slice(0,7);
 $('report-month').onchange=load;
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();$('auth-msg').textContent='Entrando…';let {error}=await sb.auth.signInWithPassword({email:$('email').value,password:$('password').value});$('auth-msg').textContent=error?.message||'';if(!error)await init();});
@@ -41,8 +67,48 @@ $('entry-form').addEventListener('submit',async e=>{
     await load();
   }
 });
-$('filter').onchange=load;
-async function init(){const {data:{session}}=await sb.auth.getSession();if(session){$('auth').classList.add('hidden');$('app').classList.remove('hidden');$('logout').classList.remove('hidden');await load();}}
+$('filter').onchange=load;async function loadPlanning(){
+  const {data,error}=await sb
+    .from('planning_entries')
+    .select('*')
+    .order('created_at',{ascending:false});
+
+  if(error){
+    $('planning-list').innerHTML='Erro: '+error.message;
+    return;
+  }
+
+  const entries=data||[];
+
+  const categories=[...new Set(entries.map(x=>x.category))];
+
+  $('planning-list').innerHTML=categories.map(category=>{
+    const items=entries.filter(x=>x.category===category);
+    const total=items.reduce((s,x)=>s+Number(x.amount),0);
+
+    return `
+      <div style="margin:20px 0">
+        <h3>${esc(category)} — ${fmt(total)}</h3>
+        ${items.map(x=>`
+          <p>
+            ${esc(x.description)} — ${fmt(x.amount)}
+            <small>(${esc(x.status)})</small>
+          </p>
+        `).join('')}
+      </div>
+    `;
+  }).join('')||'<p>Nenhum valor cadastrado.</p>';
+}
+async function init(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){
+    $('auth').classList.add('hidden');
+    $('app').classList.remove('hidden');
+    $('logout').classList.remove('hidden');
+    await load();
+    await loadPlanning();
+  }
+}
 async function load(){const {data,error}=await sb.from('transactions').select('*').order('date',{ascending:false});if(error){$('entry-msg').textContent=error.message;return;}const all=data||[],month=new Date().toISOString().slice(0,7);const paid=all.filter(x=>x.status==='pago');$('balance').textContent=fmt(paid.reduce((s,x)=>s+(x.type==='entrada'?x.amount:-x.amount),0));$('income').textContent=fmt(paid.filter(x=>x.type==='entrada'&&x.date.startsWith(month)).reduce((s,x)=>s+x.amount,0));$('expense').textContent=fmt(paid.filter(x=>x.type==='despesa'&&x.date.startsWith(month)).reduce((s,x)=>s+x.amount,0));$('pending').textContent=fmt(all.filter(x=>x.status==='pendente').reduce((s,x)=>s+x.amount,0)); const reportMonth=$('report-month').value;
 const reportItems=paid.filter(x=>x.date.startsWith(reportMonth));console.log(reportMonth, paid.map(x=>x.date));
 
