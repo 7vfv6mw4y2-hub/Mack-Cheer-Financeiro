@@ -265,7 +265,7 @@ const month = new Date().toISOString().slice(0, 7);
     $('category').value = x.category || '';
     $('status').value = x.status;
     $('payer').value = x.payer || '';
-
+    $('athlete-link').value = x.athlete_id || '';
     $('entry-msg').textContent = 'Editando lançamento...';
   });
 
