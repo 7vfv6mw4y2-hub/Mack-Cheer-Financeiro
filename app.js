@@ -306,16 +306,17 @@ $('import-bank').addEventListener('click', async () => {
     const text = (await file.text()).replace(/^\uFEFF/, '');
 
     
+
 function parseCSV(content) {
   const lines = content
     .replace(/^\uFEFF/, '')
     .split(/\r?\n/)
-    .filter(line => line.trim());
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
 
   if (!lines.length) return [];
 
   const firstLine = lines[0];
-
   const separators = ['|', ';', '\t', ','];
 
   const delimiter = separators
@@ -325,11 +326,22 @@ function parseCSV(content) {
     }))
     .sort((a, b) => b.count - a.count)[0].sep;
 
-  return lines.map(line =>
-    line.split(delimiter).map(cell =>
-      cell.trim().replace(/^"|"$/g, '')
-    )
-  );
+  return lines
+    .map(line => {
+      let clean = line;
+
+      if (delimiter === '|') {
+        clean = clean.replace(/^\|/, '').replace(/\|$/, '');
+      }
+
+      return clean.split(delimiter).map(cell =>
+        cell.trim().replace(/^"|"$/g, '')
+      );
+    })
+    .filter(row =>
+      row.length > 1 &&
+      !row.every(cell => /^[-:]+$/.test(cell))
+    );
 }
 
     function normalize(value) {
