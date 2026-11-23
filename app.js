@@ -256,6 +256,7 @@ const month = new Date().toISOString().slice(0, 7);
   document.querySelectorAll('.edit').forEach(b => b.onclick = async () => {
     const x = shown.find(t => String(t.id) === b.dataset.id);
     if (!x) return;
+    await loadAthletes();
 
     editingId = x.id;
     $('kind').value = x.type;
