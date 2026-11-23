@@ -305,54 +305,32 @@ $('import-bank').addEventListener('click', async () => {
 
     const text = (await file.text()).replace(/^\uFEFF/, '');
 
-    function parseCSV(content) {
-      const firstLine = content.split(/\r?\n/)[0];
-      const separators = [';', ',', '\t'];
-      let delimiter = ';';
-      let highest = -1;
+    
+function parseCSV(content) {
+  const lines = content
+    .replace(/^\uFEFF/, '')
+    .split(/\r?\n/)
+    .filter(line => line.trim());
 
-      for (const sep of separators) {
-        const count = firstLine.split(sep).length;
-        if (count > highest) {
-          highest = count;
-          delimiter = sep;
-        }
-      }
+  if (!lines.length) return [];
 
-      const rows = [];
-      let row = [];
-      let cell = '';
-      let quoted = false;
+  const firstLine = lines[0];
 
-      for (let i = 0; i < content.length; i++) {
-        const c = content[i];
+  const separators = ['|', ';', '\t', ','];
 
-        if (c === '"') {
-          if (quoted && content[i + 1] === '"') {
-            cell += '"';
-            i++;
-          } else {
-            quoted = !quoted;
-          }
-        } else if (c === delimiter && !quoted) {
-          row.push(cell.trim());
-          cell = '';
-        } else if ((c === '\n' || c === '\r') && !quoted) {
-          if (c === '\r' && content[i + 1] === '\n') i++;
-          row.push(cell.trim());
-          if (row.some(v => v !== '')) rows.push(row);
-          row = [];
-          cell = '';
-        } else {
-          cell += c;
-        }
-      }
+  const delimiter = separators
+    .map(sep => ({
+      sep,
+      count: firstLine.split(sep).length
+    }))
+    .sort((a, b) => b.count - a.count)[0].sep;
 
-      row.push(cell.trim());
-      if (row.some(v => v !== '')) rows.push(row);
-
-      return rows;
-    }
+  return lines.map(line =>
+    line.split(delimiter).map(cell =>
+      cell.trim().replace(/^"|"$/g, '')
+    )
+  );
+}
 
     function normalize(value) {
       return String(value || '')
