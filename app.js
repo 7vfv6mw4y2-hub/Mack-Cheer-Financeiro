@@ -141,6 +141,7 @@ async function init() {
     $('logout').classList.remove('hidden');
     await load();
     await loadPlanning();
+    await loadAthletes();
   }
 }
 
@@ -530,3 +531,72 @@ rows.splice(0, headerIndex + 1);
     button.disabled = false;
   }
 });
+
+// CADASTRO DE ATLETAS
+
+$('athlete-form').addEventListener('submit', async e => {
+  e.preventDefault();
+
+  $('athlete-msg').textContent = 'Salvando atleta...';
+
+  const { data: { user }, error: userError } = await sb.auth.getUser();
+
+  if (userError || !user) {
+    $('athlete-msg').textContent = 'Faça login novamente.';
+    return;
+  }
+
+  const payload = {
+    user_id: user.id,
+    name: $('athlete-name').value.trim(),
+    team: $('athlete-team').value.trim() || null,
+    scholarship_percentage: Number($('athlete-scholarship').value),
+    season: Number($('athlete-season').value),
+    is_active: true
+  };
+
+  const { error } = await sb
+    .from('athletes')
+    .insert(payload);
+
+  if (error) {
+    $('athlete-msg').textContent = 'Erro: ' + error.message;
+    return;
+  }
+
+  $('athlete-msg').textContent = 'Atleta cadastrada com sucesso!';
+
+  e.target.reset();
+  $('athlete-scholarship').value = 0;
+  $('athlete-season').value = 2026;
+
+  await loadAthletes();
+});
+
+
+async function loadAthletes() {
+  const { data, error } = await sb
+    .from('athletes')
+    .select('*')
+    .order('name', { ascending: true });
+
+  if (error) {
+    $('athlete-list').textContent = 'Erro: ' + error.message;
+    return;
+  }
+
+  const athletes = data || [];
+
+  $('athlete-list').innerHTML = athletes.length
+    ? athletes.map(a => `
+        <div style="padding:12px 0;border-bottom:1px solid #ddd">
+          <strong>${esc(a.name)}</strong>
+          <p class="muted">
+            Equipe: ${esc(a.team || 'Não informada')} |
+            Bolsa: ${a.scholarship_percentage}% |
+            Temporada: ${a.season}
+          </p>
+        </div>
+      `).join('')
+    : '<p>Nenhuma atleta cadastrada ainda.</p>';
+}
