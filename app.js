@@ -157,7 +157,21 @@ async function load() {
   }
 
   const all = data || [];
-  const month = new Date().toISOString().slice(0, 7);
+
+const { data: athleteData, error: athleteError } = await sb
+  .from('athletes')
+  .select('id,name');
+
+if (athleteError) {
+  $('entry-msg').textContent = 'Erro ao carregar atletas: ' + athleteError.message;
+  return;
+}
+
+const athleteMap = Object.fromEntries(
+  (athleteData || []).map(a => [a.id, a.name])
+);
+
+const month = new Date().toISOString().slice(0, 7);
   const paid = all.filter(x => x.status === 'pago');
 
   $('balance').textContent = fmt(
@@ -227,7 +241,8 @@ async function load() {
     <tr>
       <td>${x.date}</td>
       <td>${esc(x.description)}${x.payer ? `<div class="muted">${esc(x.payer)}</div>` : ''}</td>
-      <td>${esc(x.category || '—')}</td>
+<td>${x.athlete_id && athleteMap[x.athlete_id] ? esc(athleteMap[x.athlete_id]) : '—'}</td>
+<td>${esc(x.category || '—')}</td>
       <td><span class="tag">${x.status}</span></td>
       <td class="${x.type === 'entrada' ? 'positive' : 'negative'}">${x.type === 'entrada' ? '+' : '−'} ${fmt(x.amount)}</td>
       <td>
