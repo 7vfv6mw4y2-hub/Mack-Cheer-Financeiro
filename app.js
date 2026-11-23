@@ -389,7 +389,10 @@ const rows = parseCSV(text);
 console.log('CONTEÚDO DO CSV:', text.slice(0, 2000));
 console.log('LINHAS IDENTIFICADAS:', parseCSV(text));
 if (rows.length < 2) {
-  throw new Error('O arquivo não possui movimentações.');
+  throw new Error(
+    'Linhas encontradas: ' + rows.length +
+    '. Conteúdo lido: ' + text.slice(0, 500)
+  );
 }
 
 const headerIndex = rows.findIndex(row => {
