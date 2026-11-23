@@ -634,8 +634,86 @@ async function loadAthletes() {
   document.querySelectorAll('.athlete-profile-btn').forEach(button => {
     button.onclick = () => openAthleteFinancial(button.dataset.id);
   });
+    await loadAthleteTransactions();
 }
+async function loadAthleteTransactions() {
+  const container = $('athlete-transactions-list');
 
+  container.innerHTML = '<p>Carregando movimentações...</p>';
+
+  const { data: athletes, error: athleteError } = await sb
+    .from('athletes')
+    .select('*')
+    .order('name', { ascending: true });
+
+  if (athleteError) {
+    container.innerHTML = 'Erro ao carregar atletas: ' + esc(athleteError.message);
+    return;
+  }
+
+  const { data: transactions, error } = await sb
+    .from('transactions')
+    .select('*')
+    .order('date', { ascending: false });
+
+  if (error) {
+    container.innerHTML = 'Erro ao carregar movimentações: ' + esc(error.message);
+    return;
+  }
+
+  const all = transactions || [];
+
+  function renderTable(items) {
+    if (!items.length) return '<p>Nenhuma movimentação cadastrada.</p>';
+
+    return `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Descrição</th>
+              <th>Categoria</th>
+              <th>Status</th>
+              <th>Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(x => `
+              <tr>
+                <td>${esc(x.date)}</td>
+                <td>${esc(x.description)}</td>
+                <td>${esc(x.category || '—')}</td>
+                <td>${esc(x.status)}</td>
+                <td>${x.type === 'entrada' ? '+' : '−'} ${fmt(x.amount)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  container.innerHTML = `
+    ${(athletes || []).map(athlete => {
+      const items = all.filter(x => String(x.athlete_id) === String(athlete.id));
+
+      return `
+        <div style="margin:24px 0">
+          <h3>${esc(athlete.name)}</h3>
+          <p class="muted">${items.length} movimentação(ões)</p>
+          ${renderTable(items)}
+        </div>
+      `;
+    }).join('')}
+
+    <div style="margin:24px 0">
+      <h3>Sem atleta vinculada</h3>
+      <p class="muted">Movimentações que ainda precisam ser organizadas.</p>
+      ${renderTable(all.filter(x => !x.athlete_id))}
+    </div>
+  `;
+}
 async function openAthleteFinancial(athleteId) {
   const panel = $('athlete-financial');
   const content = $('athlete-financial-content');
