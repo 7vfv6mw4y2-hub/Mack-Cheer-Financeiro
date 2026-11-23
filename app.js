@@ -57,8 +57,9 @@ $('entry-form').addEventListener('submit', async e => {
     date: $('date').value,
     category: $('category').value,
     status: $('status').value,
-    payer: $('payer').value || null
-  };
+    payer: $('payer').value || null,
+    athlete_id: $('athlete-link').value || null
+};
 
   const { error } = editingId
     ? await sb.from('transactions').update(payload).eq('id', editingId)
