@@ -564,7 +564,6 @@ $('athlete-form').addEventListener('submit', async e => {
 
   const payload = {
     user_id: user.id,
-    athlete_id: $('athlete-link').value || null,
     name: $('athlete-name').value.trim(),
     team: $('athlete-team').value.trim() || null,
     scholarship_percentage: Number($('athlete-scholarship').value),
