@@ -64,11 +64,24 @@ reportItems.filter(x=>x.type==='despesa').forEach(x=>{
   categories[category]=(categories[category]||0)+Number(x.amount);
 });
 
-$('category-report').innerHTML=Object.entries(categories)
-  .sort((a,b)=>b[1]-a[1])
-  .map(([name,value])=>`
-    <p>${esc(name)}: <strong>${fmt(value)}</strong></p>
-  `).join('')||'<p>Nenhuma despesa neste mês.</p>';let f=$('filter').value;let shown=all.filter(x=>f==='all'||x.type===f||x.status===f);$('rows').innerHTML=shown.map(x=>`<tr><td>${x.date}</td><td>${esc(x.description)}${x.payer?`<div class="muted">${esc(x.payer)}</div>`:''}</td><td>${esc(x.category||'—')}</td><td><span class="tag">${x.status}</span></td><td class="${x.type==='entrada'?'positive':'negative'}">${x.type==='entrada'?'+':'−'} ${fmt(x.amount)}</td><td><button class="edit" data-id="${x.id}">Editar</button>
+const categoryEntries=Object.entries(categories)
+  .sort((a,b)=>b[1]-a[1]);
+
+const maxCategory=Math.max(...categoryEntries.map(x=>x[1]),1);
+
+$('category-report').innerHTML=categoryEntries.length
+  ? categoryEntries.map(([name,value])=>`
+    <div style="margin:16px 0">
+      <div style="display:flex;justify-content:space-between;gap:10px">
+        <strong>${esc(name)}</strong>
+        <strong>${fmt(value)}</strong>
+      </div>
+      <div style="background:#eee;border-radius:10px;height:12px;margin-top:7px">
+        <div style="background:#315c45;width:${value/maxCategory*100}%;height:12px;border-radius:10px"></div>
+      </div>
+    </div>
+  `).join('')
+  : '<p>Nenhuma despesa neste mês.</p>';let f=$('filter').value;let shown=all.filter(x=>f==='all'||x.type===f||x.status===f);$('rows').innerHTML=shown.map(x=>`<tr><td>${x.date}</td><td>${esc(x.description)}${x.payer?`<div class="muted">${esc(x.payer)}</div>`:''}</td><td>${esc(x.category||'—')}</td><td><span class="tag">${x.status}</span></td><td class="${x.type==='entrada'?'positive':'negative'}">${x.type==='entrada'?'+':'−'} ${fmt(x.amount)}</td><td><button class="edit" data-id="${x.id}">Editar</button>
 <button class="delete" data-id="${x.id}" aria-label="Excluir">×</button></td></tr>`).join('');document.querySelectorAll('.edit').forEach(b=>b.onclick=()=>{alert('Botão editar funcionando!');
   const x=shown.find(t=>String(t.id)===b.dataset.id);
   if(!x)return;
