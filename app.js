@@ -282,3 +282,221 @@ function esc(s) {
 }
 
 init();
+
+$('import-bank').addEventListener('click', async () => {
+  const file = $('bank-file').files[0];
+  const msg = $('import-msg');
+  const button = $('import-bank');
+
+  if (!file) {
+    msg.textContent = 'Selecione um arquivo CSV primeiro.';
+    return;
+  }
+
+  button.disabled = true;
+  msg.textContent = 'Lendo extrato...';
+
+  try {
+    const { data: { user }, error: userError } = await sb.auth.getUser();
+
+    if (userError || !user) {
+      throw new Error('Faça login novamente.');
+    }
+
+    const text = (await file.text()).replace(/^\uFEFF/, '');
+
+    function parseCSV(content) {
+      const firstLine = content.split(/\r?\n/)[0];
+      const separators = [';', ',', '\t'];
+      let delimiter = ';';
+      let highest = -1;
+
+      for (const sep of separators) {
+        const count = firstLine.split(sep).length;
+        if (count > highest) {
+          highest = count;
+          delimiter = sep;
+        }
+      }
+
+      const rows = [];
+      let row = [];
+      let cell = '';
+      let quoted = false;
+
+      for (let i = 0; i < content.length; i++) {
+        const c = content[i];
+
+        if (c === '"') {
+          if (quoted && content[i + 1] === '"') {
+            cell += '"';
+            i++;
+          } else {
+            quoted = !quoted;
+          }
+        } else if (c === delimiter && !quoted) {
+          row.push(cell.trim());
+          cell = '';
+        } else if ((c === '\n' || c === '\r') && !quoted) {
+          if (c === '\r' && content[i + 1] === '\n') i++;
+          row.push(cell.trim());
+          if (row.some(v => v !== '')) rows.push(row);
+          row = [];
+          cell = '';
+        } else {
+          cell += c;
+        }
+      }
+
+      row.push(cell.trim());
+      if (row.some(v => v !== '')) rows.push(row);
+
+      return rows;
+    }
+
+    function normalize(value) {
+      return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+    }
+
+    function money(value) {
+      let v = String(value || '')
+        .replace(/R\$/gi, '')
+        .replace(/\s/g, '')
+        .trim();
+
+      if (!v || v === '-') return 0;
+
+      if (v.includes(',')) {
+        v = v.replace(/\./g, '').replace(',', '.');
+      }
+
+      const result = Number(v);
+      return Number.isFinite(result) ? Math.abs(result) : 0;
+    }
+
+    function dateISO(value) {
+      const v = String(value || '').trim();
+
+      if (/^\d{4}-\d{2}-\d{2}/.test(v)) {
+        return v.slice(0, 10);
+      }
+
+      const match = v.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+
+      if (match) {
+        return `${match[3]}-${match[2]}-${match[1]}`;
+      }
+
+      return '';
+    }
+
+    const rows = parseCSV(text);
+
+    if (rows.length < 2) {
+      throw new Error('O arquivo não possui movimentações.');
+    }
+
+    const headers = rows.shift().map(normalize);
+
+    const findColumn = (...names) =>
+      headers.findIndex(h => names.some(n => h.includes(n)));
+
+    const dateCol = findColumn('datalancamento');
+    const titleCol = findColumn('titulo');
+    const descCol = findColumn('descricao');
+    const entryCol = findColumn('entrada');
+    const expenseCol = findColumn('saida');
+
+    if ([dateCol, entryCol, expenseCol].includes(-1)) {
+      throw new Error('Não reconheci as colunas do C6. Confira se o arquivo é CSV.');
+    }
+
+    const { data: existing, error: readError } = await sb
+      .from('transactions')
+      .select('date,type,description,amount');
+
+    if (readError) throw readError;
+
+    const makeKey = x => [
+      x.date,
+      x.type,
+      Number(x.amount).toFixed(2),
+      normalize(x.description)
+    ].join('|');
+
+    const known = new Set((existing || []).map(makeKey));
+    const imported = [];
+
+    for (const row of rows) {
+      const date = dateISO(row[dateCol]);
+      if (!date) continue;
+
+      const title = titleCol >= 0 ? row[titleCol] : '';
+      const detail = descCol >= 0 ? row[descCol] : '';
+
+      const description = [title, detail]
+        .filter(Boolean)
+        .join(' - ') || 'Movimentação C6';
+
+      const entry = money(row[entryCol]);
+      const expense = money(row[expenseCol]);
+
+      const movements = [];
+
+      if (entry > 0) {
+        movements.push({ type: 'entrada', amount: entry });
+      }
+
+      if (expense > 0) {
+        movements.push({ type: 'despesa', amount: expense });
+      }
+
+      for (const movement of movements) {
+        const item = {
+          user_id: user.id,
+          type: movement.type,
+          description,
+          amount: movement.amount,
+          date,
+          category: 'Outros',
+          status: 'pago',
+          payer: null
+        };
+
+        const key = makeKey(item);
+
+        if (!known.has(key)) {
+          imported.push(item);
+          known.add(key);
+        }
+      }
+    }
+
+    if (!imported.length) {
+      msg.textContent = 'Nenhuma movimentação nova encontrada. Talvez já tenham sido importadas.';
+      return;
+    }
+
+    const { error: insertError } = await sb
+      .from('transactions')
+      .insert(imported);
+
+    if (insertError) throw insertError;
+
+    msg.textContent =
+      `${imported.length} movimentação(ões) importada(s) com sucesso!`;
+
+    $('bank-file').value = '';
+
+    await load();
+
+  } catch (err) {
+    msg.textContent = 'Erro na importação: ' + err.message;
+  } finally {
+    button.disabled = false;
+  }
+});
