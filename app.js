@@ -386,7 +386,8 @@ function parseCSV(content) {
 
     
 const rows = parseCSV(text);
-
+console.log('CONTEÚDO DO CSV:', text.slice(0, 2000));
+console.log('LINHAS IDENTIFICADAS:', parseCSV(text));
 if (rows.length < 2) {
   throw new Error('O arquivo não possui movimentações.');
 }
