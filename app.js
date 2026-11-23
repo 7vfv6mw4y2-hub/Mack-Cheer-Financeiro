@@ -614,7 +614,14 @@ async function loadAthletes() {
   $('athlete-list').innerHTML = athletes.length
     ? athletes.map(a => `
         <div style="padding:12px 0;border-bottom:1px solid #ddd">
-          <strong>${esc(a.name)}</strong>
+          <button
+            type="button"
+            class="athlete-profile-btn"
+            data-id="${a.id}"
+            style="background:none;border:none;padding:0;color:inherit;font-weight:bold;cursor:pointer"
+          >
+            ${esc(a.name)}
+          </button>
           <p class="muted">
             Equipe: ${esc(a.team || 'Não informada')} |
             Bolsa: ${a.scholarship_percentage}% |
@@ -623,4 +630,107 @@ async function loadAthletes() {
         </div>
       `).join('')
     : '<p>Nenhuma atleta cadastrada ainda.</p>';
+      `).join('')
+    : '<p>Nenhuma atleta cadastrada ainda.</p>';
+      document.querySelectorAll('.athlete-profile-btn').forEach(button => {
+    button.onclick = () => openAthleteFinancial(button.dataset.id);
+  });
+}
+
+async function openAthleteFinancial(athleteId) {
+  const panel = $('athlete-financial');
+  const content = $('athlete-financial-content');
+
+  panel.classList.remove('hidden');
+  content.innerHTML = '<p>Carregando perfil financeiro...</p>';
+
+  const { data: athlete, error: athleteError } = await sb
+    .from('athletes')
+    .select('*')
+    .eq('id', athleteId)
+    .single();
+
+  if (athleteError) {
+    content.innerHTML = 'Erro ao carregar atleta: ' + esc(athleteError.message);
+    return;
+  }
+
+  const { data: transactions, error } = await sb
+    .from('transactions')
+    .select('*')
+    .eq('athlete_id', athleteId)
+    .order('date', { ascending: false });
+
+  if (error) {
+    content.innerHTML = 'Erro ao carregar lançamentos: ' + esc(error.message);
+    return;
+  }
+
+  const items = transactions || [];
+
+  const paid = items.filter(x => x.status === 'pago' && x.type === 'entrada');
+  const pending = items.filter(x => x.status === 'pendente' && x.type === 'entrada');
+
+  const totalPaid = paid.reduce((s, x) => s + Number(x.amount), 0);
+  const totalPending = pending.reduce((s, x) => s + Number(x.amount), 0);
+
+  content.innerHTML = `
+    <button type="button" id="close-athlete-profile" class="secondary">
+      Fechar perfil
+    </button>
+
+    <h3>${esc(athlete.name)}</h3>
+
+    <p class="muted">
+      Equipe: ${esc(athlete.team || 'Não informada')} |
+      Bolsa: ${athlete.scholarship_percentage}% |
+      Temporada: ${athlete.season}
+    </p>
+
+    <div class="cards">
+      <article class="card">
+        <span>Total pago</span>
+        <strong>${fmt(totalPaid)}</strong>
+      </article>
+
+      <article class="card">
+        <span>Pendente</span>
+        <strong>${fmt(totalPending)}</strong>
+      </article>
+    </div>
+
+    <h3>Histórico financeiro</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Descrição</th>
+            <th>Categoria</th>
+            <th>Status</th>
+            <th>Valor</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          ${items.map(x => `
+            <tr>
+              <td>${esc(x.date)}</td>
+              <td>${esc(x.description)}</td>
+              <td>${esc(x.category || '—')}</td>
+              <td>${esc(x.status)}</td>
+              <td>${x.type === 'entrada' ? '+' : '−'} ${fmt(x.amount)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    ${items.length ? '' : '<p>Nenhum lançamento vinculado a esta atleta ainda.</p>'}
+  `;
+
+  $('close-athlete-profile').onclick = () => {
+    panel.classList.add('hidden');
+  };
 }
