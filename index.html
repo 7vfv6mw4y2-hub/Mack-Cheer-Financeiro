@@ -30,7 +30,27 @@
 
 <input id="payer" placeholder="Quem pagou / recebeu (opcional)">
 <button>Adicionar lançamento</button>Adicionar lançamento</button></form><p id="entry-msg" class="muted"></p></div>
-<div class="panel"><div class="list-head"><h2>Movimentações</h2><select id="filter"><option value="all">Todas</option><option value="entrada">Entradas</option><option value="despesa">Despesas</option><option value="pendente">Pendentes</option></select></div><div class="table-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Atleta</th><th>Categoria</th><th>Status</th><th>Valor</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></div></div><div id="relatorios" class="tab-content hidden">
+<div class="panel">
+  <h2>Extrato geral</h2>
+
+  <div class="formgrid">
+    <div>
+      <label for="filter">Tipo de movimentação</label>
+      <select id="filter">
+        <option value="all">Todas</option>
+        <option value="entrada">Entradas</option>
+        <option value="despesa">Despesas</option>
+        <option value="pendente">Pendentes</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="statement-month">Mês</label>
+      <input type="month" id="statement-month">
+    </div>
+  </div>
+
+  <h3>Movimentações</h3><option value="all">Todas</option><option value="entrada">Entradas</option><option value="despesa">Despesas</option><option value="pendente">Pendentes</option></select></div><div class="table-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Atleta</th><th>Categoria</th><th>Status</th><th>Valor</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></div></div><div id="relatorios" class="tab-content hidden">
 
   <div class="panel">
     <h2>Relatórios financeiros</h2>
