@@ -669,45 +669,78 @@ async function loadAthleteTransactions() {
 
   const all = transactions || [];
 
-  function renderTable(items, allowLink = false) {
+  
+function renderTable(items, allowLink = false) {
   if (!items.length) return '<p>Nenhuma movimentação cadastrada.</p>';
+
+  function suggestAthlete(transaction) {
+    const description = (transaction.description || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+    return (athletes || []).find(athlete => {
+      const nameParts = (athlete.name || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean);
+
+      return nameParts.length >= 2 &&
+        nameParts.every(part => description.includes(part));
+    });
+  }
 
   return `
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
+            ${allowLink ? '<th>Selecionar</th>' : ''}
             <th>Data</th>
             <th>Descrição</th>
             <th>Categoria</th>
             <th>Status</th>
             <th>Valor</th>
-            ${allowLink ? '<th>Vincular</th>' : ''}
+            ${allowLink ? '<th>Atleta sugerida / escolha</th>' : ''}
           </tr>
         </thead>
         <tbody>
-          ${items.map(x => `
-            <tr>
-              <td>${esc(x.date)}</td>
-              <td>${esc(x.description)}</td>
-              <td>${esc(x.category || '—')}</td>
-              <td>${esc(x.status)}</td>
-              <td>${x.type === 'entrada' ? '+' : '−'} ${fmt(x.amount)}</td>
-              ${allowLink ? `
-                <td>
-                  <select class="link-athlete-select" data-id="${x.id}">
-                    <option value="">Escolher atleta</option>
-                    ${(athletes || []).map(a => `
-                      <option value="${a.id}">${esc(a.name)}</option>
-                    `).join('')}
-                  </select>
-                  <button type="button" class="link-athlete-btn" data-id="${x.id}">
-                    Salvar
-                  </button>
-                </td>
-              ` : ''}
-            </tr>
-          `).join('')}
+          ${items.map(x => {
+            const suggested = allowLink ? suggestAthlete(x) : null;
+
+            return `
+              <tr>
+                ${allowLink ? `
+                  <td>
+                    <input type="checkbox"
+                      class="bulk-transaction-check"
+                      data-id="${x.id}">
+                  </td>
+                ` : ''}
+                <td>${esc(x.date)}</td>
+                <td>${esc(x.description)}</td>
+                <td>${esc(x.category || '—')}</td>
+                <td>${esc(x.status)}</td>
+                <td>${x.type === 'entrada' ? '+' : '−'} ${fmt(x.amount)}</td>
+                ${allowLink ? `
+                  <td>
+                    <select class="link-athlete-select" data-id="${x.id}">
+                      <option value="">Escolher atleta</option>
+                      ${(athletes || []).map(a => `
+                        <option value="${a.id}"
+                          ${suggested && String(suggested.id) === String(a.id) ? 'selected' : ''}>
+                          ${esc(a.name)}
+                        </option>
+                      `).join('')}
+                    </select>
+                    ${suggested ? '<small>Sugestão automática</small>' : ''}
+                  </td>
+                ` : ''}
+              </tr>
+            `;
+          }).join('')}
         </tbody>
       </table>
     </div>
