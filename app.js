@@ -827,6 +827,7 @@ function renderTable(items, allowLink = false) {
       await load();
     });
   }
+}
 async function openAthleteFinancial(athleteId) {
   const panel = $('athlete-financial');
   const content = $('athlete-financial-content');
