@@ -131,7 +131,84 @@ async function loadPlanning() {
     `;
   }).join('') || '<p>Nenhum valor cadastrado.</p>';
 }
+// CONTROLE DE PAGAMENTOS
 
+$('charges-month').value = new Date().toISOString().slice(0, 7);
+$('charges-month').addEventListener('change', loadMonthlyCharges);
+
+async function loadMonthlyCharges() {
+  const container = $('charges-list');
+  const summary = $('charges-summary');
+  const month = $('charges-month').value;
+
+  if (!month) return;
+
+  container.innerHTML = '<p>Carregando cobranças...</p>';
+
+  const { data, error } = await sb
+    .from('monthly_charges')
+    .select('*, athletes(name)')
+    .eq('month', month)
+    .order('created_at');
+
+  if (error) {
+    container.innerHTML = 'Erro ao carregar: ' + esc(error.message);
+    return;
+  }
+
+  const charges = data || [];
+
+  const total = charges.reduce((s, x) => s + Number(x.amount), 0);
+  const paid = charges.filter(x => x.status === 'pago')
+    .reduce((s, x) => s + Number(x.amount), 0);
+  const pending = charges.filter(x => x.status === 'pendente')
+    .reduce((s, x) => s + Number(x.amount), 0);
+  const exempt = charges.filter(x => x.status === 'isento').length;
+
+  summary.innerHTML = `
+    <article class="card">
+      <span>Total previsto</span>
+      <strong>${fmt(total)}</strong>
+    </article>
+    <article class="card">
+      <span>Recebido</span>
+      <strong>${fmt(paid)}</strong>
+    </article>
+    <article class="card">
+      <span>Em aberto</span>
+      <strong>${fmt(pending)}</strong>
+    </article>
+    <article class="card">
+      <span>Isentas</span>
+      <strong>${exempt}</strong>
+    </article>
+  `;
+
+  container.innerHTML = charges.length
+    ? `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Atleta</th>
+              <th>Valor</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${charges.map(x => `
+              <tr>
+                <td>${esc(x.athletes?.name || 'Atleta')}</td>
+                <td>${fmt(x.amount)}</td>
+                <td>${esc(x.status)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `
+    : '<p>Nenhuma cobrança cadastrada para este mês.</p>';
+}
 async function init() {
   const { data: { session } } = await sb.auth.getSession();
 
