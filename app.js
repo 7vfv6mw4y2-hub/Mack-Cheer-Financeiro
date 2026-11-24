@@ -209,6 +209,82 @@ async function loadMonthlyCharges() {
     `
     : '<p>Nenhuma cobrança cadastrada para este mês.</p>';
 }
+$('generate-charges').addEventListener('click', async () => {
+  const month = $('charges-month').value;
+
+  if (!month) {
+    alert('Selecione um mês.');
+    return;
+  }
+
+  const button = $('generate-charges');
+  button.disabled = true;
+  button.textContent = 'Gerando cobranças...';
+
+  try {
+    const { data: { user }, error: userError } = await sb.auth.getUser();
+
+    if (userError || !user) {
+      throw new Error('Faça login novamente.');
+    }
+
+    const { data: athletes, error: athleteError } = await sb
+      .from('athletes')
+      .select('*')
+      .eq('season', 2026)
+      .eq('is_active', true);
+
+    if (athleteError) throw athleteError;
+
+    const { data: existing, error: existingError } = await sb
+      .from('monthly_charges')
+      .select('athlete_id')
+      .eq('month', month);
+
+    if (existingError) throw existingError;
+
+    const alreadyCreated = new Set(
+      (existing || []).map(x => String(x.athlete_id))
+    );
+
+    const base = month.endsWith('-07') ? 30 : 60;
+
+    const newCharges = (athletes || [])
+      .filter(a => !alreadyCreated.has(String(a.id)))
+      .map(a => ({
+        user_id: user.id,
+        athlete_id: a.id,
+        month,
+        amount: Number(
+          (base * (1 - Number(a.scholarship_percentage || 0) / 100))
+            .toFixed(2)
+        ),
+        status: 'pendente'
+      }));
+
+    if (!newCharges.length) {
+      alert('Todas as cobranças desse mês já foram criadas.');
+      await loadMonthlyCharges();
+      return;
+    }
+
+    const { error: insertError } = await sb
+      .from('monthly_charges')
+      .insert(newCharges);
+
+    if (insertError) throw insertError;
+
+    alert(`${newCharges.length} cobranças criadas com sucesso!`);
+
+    await loadMonthlyCharges();
+
+  } catch (err) {
+    alert('Erro ao gerar cobranças: ' + err.message);
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Gerar cobranças do mês';
+  }
+});
 async function init() {
   const { data: { session } } = await sb.auth.getSession();
 
