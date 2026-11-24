@@ -746,7 +746,13 @@ function renderTable(items, allowLink = false) {
     </div>
   `;
 }
-
+  const bulkButton = `
+    <div style="margin:16px 0">
+      <button type="button" id="bulk-link-athletes">
+        Vincular movimentações selecionadas
+      </button>
+    </div>
+  `;
   container.innerHTML = `
     ${(athletes || []).map(athlete => {
       const items = all.filter(x => String(x.athlete_id) === String(athlete.id));
@@ -762,44 +768,65 @@ function renderTable(items, allowLink = false) {
 
     <div style="margin:24px 0">
       <h3>Sem atleta vinculada</h3>
+            ${bulkButton}
       <p class="muted">Movimentações que ainda precisam ser organizadas.</p>
       ${renderTable(all.filter(x => !x.athlete_id), true)}
     </div>
   `;
-  container.querySelectorAll('.link-athlete-btn').forEach(button => {
-    button.addEventListener('click', async () => {
-      const id = button.dataset.id;
-      const select = container.querySelector(
-        `.link-athlete-select[data-id="${id}"]`
-      );
+    const bulkLinkButton = $('bulk-link-athletes');
 
-      const athleteId = select.value;
+  if (bulkLinkButton) {
+    bulkLinkButton.addEventListener('click', async () => {
+      const selected = [...container.querySelectorAll('.bulk-transaction-check:checked')];
 
-      if (!athleteId) {
-        alert('Escolha uma atleta antes de salvar.');
+      if (!selected.length) {
+        alert('Selecione pelo menos uma movimentação.');
         return;
       }
 
-      button.disabled = true;
-      button.textContent = 'Salvando...';
+      const updates = selected.map(check => {
+        const id = check.dataset.id;
+        const select = container.querySelector(
+          `.link-athlete-select[data-id="${id}"]`
+        );
 
-      const { error } = await sb
-        .from('transactions')
-        .update({ athlete_id: athleteId })
-        .eq('id', id);
+        return {
+          id,
+          athleteId: select.value
+        };
+      });
 
-      if (error) {
-        alert('Erro ao vincular: ' + error.message);
-        button.disabled = false;
-        button.textContent = 'Salvar';
+      if (updates.some(item => !item.athleteId)) {
+        alert('Escolha uma atleta para todas as movimentações selecionadas.');
         return;
       }
 
+      if (!confirm(`Vincular ${updates.length} movimentação(ões) às atletas selecionadas?`)) {
+        return;
+      }
+
+      bulkLinkButton.disabled = true;
+      bulkLinkButton.textContent = 'Salvando...';
+
+      for (const item of updates) {
+        const { error } = await sb
+          .from('transactions')
+          .update({ athlete_id: item.athleteId })
+          .eq('id', item.id);
+
+        if (error) {
+          alert('Erro ao vincular: ' + error.message);
+          bulkLinkButton.disabled = false;
+          bulkLinkButton.textContent = 'Vincular movimentações selecionadas';
+          return;
+        }
+      }
+
+      alert('Movimentações vinculadas com sucesso!');
       await loadAthleteTransactions();
       await load();
     });
-  });  
-}
+  }
 async function openAthleteFinancial(athleteId) {
   const panel = $('athlete-financial');
   const content = $('athlete-financial-content');
