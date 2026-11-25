@@ -439,15 +439,18 @@ const shown = all.filter(x => {
 }
 
 document.querySelectorAll('.tab').forEach(button => {
-  button.addEventListener('click', () => {
+  button.addEventListener('click', async () => {
     document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
 
     button.classList.add('active');
     $(button.dataset.tab).classList.remove('hidden');
+
+    if (button.dataset.tab === 'controle-pagamentos') {
+      await loadMonthlyCharges();
+    }
   });
 });
-
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({
     '&': '&amp;',
