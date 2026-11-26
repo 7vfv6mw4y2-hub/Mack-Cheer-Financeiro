@@ -1,3 +1,8 @@
+
+
+
+
+
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 const SUPABASE_URL = 'https://xzlyhobauukyoffvuymi.supabase.co';
@@ -1254,10 +1259,10 @@ async function loadTransactionSuggestions() {
   } finally { button.disabled = false; button.textContent = 'Analisar movimentações existentes'; }
 }
 
-// Classificação em massa: apenas categoria, sem alterar valores ou vínculos.
+// Classificação em massa: categoria e atleta, sem alterar valores.
 if ($('bulk-load')) {
   const options = [...$('category').options].map(o => o.value);
-  $('bulk-category').innerHTML = '<option value="">Escolha a categoria</option>' + options.map(c => `<option>${esc(c)}</option>`).join('');
+  $('bulk-category').innerHTML = '<option value="">Manter categoria atual</option>' + options.map(c => `<option>${esc(c)}</option>`).join('');
   $('bulk-current').innerHTML += [...new Set([...options, 'Arrecadação', 'Inscrição'])].map(c => `<option>${esc(c)}</option>`).join('');
   $('bulk-load').onclick = async () => {
     const out = $('bulk-results');
@@ -1267,9 +1272,17 @@ if ($('bulk-load')) {
       const amount = $('bulk-amount').value;
       const category = $('bulk-current').value;
       const search = normalizeText($('bulk-search').value).trim();
+      const {data: athletes,error: athleteError} = await sb.from('athletes').select('id,name').order('name');
+      if(athleteError) throw athleteError;
+      const athleteOptions = (x) => {
+        const text = normalizeText([x.description,x.payer].join(' '));
+        const matches = (athletes || []).filter(a => normalizeText(a.name).trim().split(/\s+/).length >= 2 && text.includes(normalizeText(a.name).trim()));
+        const suggested = !x.athlete_id && matches.length === 1 ? matches[0] : null;
+        return `<select class="bulk-athlete-choice"><option value="">Manter vínculo atual</option>${(athletes || []).map(a=>`<option value="${esc(a.id)}" ${suggested && String(suggested.id)===String(a.id)?'selected':''}>${esc(a.name)}</option>`).join('')}</select>${suggested?'<small>Sugestão pelo nome: confira</small>':''}`;
+      };
       let items = [];
       for (let offset = 0; ; offset += 500) {
-        let q = sb.from('transactions').select('id,date,type,description,payer,amount,category,athletes(name)').order('date', {ascending:false}).order('id').range(offset, offset+499);
+        let q = sb.from('transactions').select('id,date,type,description,payer,amount,category,athlete_id,athletes(name)').order('date', {ascending:false}).order('id').range(offset, offset+499);
         if (month) {
           const [y,m] = month.split('-').map(Number);
           const next = `${m===12?y+1:y}-${String(m===12?1:m+1).padStart(2,'0')}-01`;
@@ -1284,24 +1297,35 @@ if ($('bulk-load')) {
       }
       items = items.filter(x => !search || normalizeText([x.description,x.payer,x.athletes?.name].join(' ')).includes(search));
       if(!items.length){out.textContent='Nenhuma movimentação encontrada.';return;}
-      out.innerHTML = `<p>${items.length} movimentações encontradas.</p><label><input type="checkbox" id="bulk-all"> Selecionar todas</label><div class="table-wrap"><table><thead><tr><th></th><th>Data</th><th>Descrição / atleta</th><th>Categoria</th><th>Valor</th></tr></thead><tbody>${items.map(x=>`<tr><td><input type="checkbox" class="bulk-cat-check" data-id="${esc(x.id)}"></td><td>${esc(x.date)}</td><td>${esc(x.description)}<br>${esc(x.athletes?.name || x.payer || '')}</td><td>${esc(x.category || '—')}</td><td>${x.type==='entrada'?'+':'−'} ${fmt(x.amount)}</td></tr>`).join('')}</tbody></table></div><button type="button" id="bulk-save">Aplicar categoria selecionada</button>`;
+      out.innerHTML = `<p>${items.length} movimentações encontradas.</p><label><input type="checkbox" id="bulk-all"> Selecionar todas</label><div class="table-wrap"><table><thead><tr><th></th><th>Data</th><th>Descrição / atleta</th><th>Categoria</th><th>Valor</th><th>Vincular atleta</th></tr></thead><tbody>${items.map(x=>`<tr><td><input type="checkbox" class="bulk-cat-check" data-id="${esc(x.id)}"></td><td>${esc(x.date)}</td><td>${esc(x.description)}<br>${esc(x.athletes?.name || x.payer || '')}</td><td>${esc(x.category || '—')}</td><td>${x.type==='entrada'?'+':'−'} ${fmt(x.amount)}</td><td>${athleteOptions(x)}</td></tr>`).join('')}</tbody></table></div><button type="button" id="bulk-save">Salvar categoria e/ou atleta</button>`;
       $('bulk-all').onchange = () => out.querySelectorAll('.bulk-cat-check').forEach(c=>c.checked=$('bulk-all').checked);
       $('bulk-save').onclick = async () => {
         const cat = $('bulk-category').value;
-        const ids = [...out.querySelectorAll('.bulk-cat-check:checked')].map(c=>c.dataset.id);
-        if(!cat || !ids.length){alert('Escolha uma categoria e selecione movimentações.');return;}
-        if(cat==='Mensalidade' && items.some(x=>ids.includes(String(x.id)) && x.type!=='entrada')){alert('Mensalidade deve ser uma entrada.');return;}
-        if(!confirm(`Classificar ${ids.length} movimentações como ${cat}?`))return;
+        const updates = [...out.querySelectorAll('.bulk-cat-check:checked')].map(c=>{
+          const tx = items.find(x=>String(x.id)===c.dataset.id);
+          const athlete = c.closest('tr').querySelector('.bulk-athlete-choice').value;
+          const payload = {};
+          if(cat && cat!==tx.category) payload.category=cat;
+          if(athlete && athlete!==String(tx.athlete_id)) payload.athlete_id=athlete;
+          return {tx,payload};
+        }).filter(x=>Object.keys(x.payload).length);
+        if(!updates.length){alert('Selecione movimentações e escolha uma categoria ou atleta diferente.');return;}
+        if(updates.some(x=>x.payload.category==='Mensalidade' && x.tx.type!=='entrada')){alert('Mensalidade deve ser uma entrada.');return;}
+        if(!confirm(`Salvar alterações em ${updates.length} movimentações? Confira as atletas sugeridas antes de confirmar.`))return;
         $('bulk-save').disabled=true;
+        $('bulk-load').disabled=true;
         let done=0;
         try {
-          for(let i=0;i<ids.length;i+=50){
-            const {data,error}=await sb.from('transactions').update({category:cat}).in('id',ids.slice(i,i+50)).select('id');
+          for(const x of updates){
+            const {data,error}=await sb.from('transactions').update(x.payload).eq('id',x.tx.id).select('id');
             if(error)throw error;
-            done+=data.length;
+            if(!data || data.length!==1)throw new Error('Não foi possível confirmar a atualização de uma movimentação.');
+            done++;
           }
-          alert(`${done} de ${ids.length} movimentações atualizadas.`);
+          alert(`${done} de ${updates.length} movimentações atualizadas.`);
         }catch(e){alert(`${done} atualizadas antes do erro: ${e.message}`);}
+        finally {$('bulk-load').disabled=false;}
+        await loadAthleteTransactions();
         await load();
         await $('bulk-load').onclick();
       };
