@@ -1,8 +1,3 @@
-
-
-
-
-
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 const SUPABASE_URL = 'https://xzlyhobauukyoffvuymi.supabase.co';
@@ -137,159 +132,50 @@ async function loadPlanning() {
   }).join('') || '<p>Nenhum valor cadastrado.</p>';
 }
 // CONTROLE DE PAGAMENTOS
-
 $('charges-month').value = new Date().toISOString().slice(0, 7);
-$('charges-month').addEventListener('change', loadMonthlyCharges);
-
+$('charges-month').onchange = loadMonthlyCharges;
+const chargeLabels = {pago:'Pago conciliado',pago_manual:'Pago manualmente',parcial:'Parcial',pendente:'A conferir / pendente',isento:'Isento',nao_se_aplica:'Não se aplica'};
+async function chargeRead(query) { const {data,error}=await query; if(error) throw error; return data || []; }
+async function chargeRpc(name,args) { const {error}=await sb.rpc(name,args); if(error) throw error; }
+function askMoney(label,initial) { const s=prompt(label,String(initial)); if(s===null)return null; const n=Number(s.replace(',','.')); if(!s.trim() || !Number.isFinite(n)||n<0||Math.abs(n*100-Math.round(n*100))>0.000001)throw new Error('Valor inválido.'); return n; }
 async function loadMonthlyCharges() {
-  const container = $('charges-list');
-  const summary = $('charges-summary');
-  const month = $('charges-month').value;
-
-  if (!month) return;
-
-  container.innerHTML = '<p>Carregando cobranças...</p>';
-
-  const { data, error } = await sb
-    .from('monthly_charges')
-    .select('*, athletes(name)')
-    .eq('month', month)
-    .order('created_at');
-
-  if (error) {
-    container.innerHTML = 'Erro ao carregar: ' + esc(error.message);
-    return;
-  }
-
-  const charges = data || [];
-
-  const total = charges.reduce((s, x) => s + Number(x.amount), 0);
-  const paid = charges.filter(x => x.status === 'pago')
-    .reduce((s, x) => s + Number(x.amount), 0);
-  const pending = charges.filter(x => x.status === 'pendente')
-    .reduce((s, x) => s + Number(x.amount), 0);
-  const exempt = charges.filter(x => x.status === 'isento').length;
-
-  summary.innerHTML = `
-    <article class="card">
-      <span>Total previsto</span>
-      <strong>${fmt(total)}</strong>
-    </article>
-    <article class="card">
-      <span>Recebido</span>
-      <strong>${fmt(paid)}</strong>
-    </article>
-    <article class="card">
-      <span>Em aberto</span>
-      <strong>${fmt(pending)}</strong>
-    </article>
-    <article class="card">
-      <span>Isentas</span>
-      <strong>${exempt}</strong>
-    </article>
-  `;
-
-  container.innerHTML = charges.length
-    ? `
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Atleta</th>
-              <th>Valor</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${charges.map(x => `
-              <tr>
-                <td>${esc(x.athletes?.name || 'Atleta')}</td>
-                <td>${fmt(x.amount)}</td>
-                <td>${esc(x.status)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    `
-    : '<p>Nenhuma cobrança cadastrada para este mês.</p>';
+ const month=$('charges-month').value, out=$('charges-list');
+ $('charges-summary').innerHTML=''; out.textContent='Carregando...';
+ if(!month)return;
+ try {
+ const [charges,athletes]=await Promise.all([chargeRead(sb.from('monthly_charge_balances').select('*').eq('month',month)),chargeRead(sb.from('athletes').select('id,name,team'))]);
+ if($('charges-month').value!==month)return;
+ const map=new Map(athletes.map(a=>[a.id,a]));
+ charges.sort((a,b)=>(map.get(a.athlete_id)?.name||'').localeCompare(map.get(b.athlete_id)?.name||'','pt-BR'));
+ const valid=charges.filter(c=>!['isento','nao_se_aplica'].includes(c.calculated_status));
+ $('charges-summary').innerHTML=[['Previsto',valid.reduce((s,c)=>s+Number(c.amount),0)],['Confirmado (inclui manual)',valid.reduce((s,c)=>s+Number(c.total_paid),0)],['Em aberto / a conferir',valid.reduce((s,c)=>s+Number(c.remaining_amount),0)]].map(([l,v])=>`<article class="card"><span>${l}</span><strong>${fmt(v)}</strong></article>`).join('');
+ out.innerHTML=`<p>Confira as cobranças antigas antes de cobrar. Baixas manuais não alteram o caixa.</p><button type="button" id="mc-bulk">Marcar selecionadas como pagas manualmente</button> <button type="button" id="mc-exempt">Isentar selecionadas</button> <button type="button" id="mc-na">Marcar selecionadas como não se aplica</button><div class="table-wrap"><table><thead><tr><th><input type="checkbox" id="mc-all"></th><th>Atleta / equipe</th><th>Valor</th><th>Manual</th><th>Extrato</th><th>Em aberto</th><th>Situação</th><th>Ações</th></tr></thead><tbody>${charges.map(c=>`<tr><td><input type="checkbox" class="mc-check" value="${esc(c.id)}"></td><td>${esc(map.get(c.athlete_id)?.name||'Atleta')}<div class="muted">${esc(map.get(c.athlete_id)?.team||'')}</div></td><td>${fmt(c.amount)}</td><td>${fmt(c.manual_paid_amount)}</td><td>${fmt(c.linked_paid_amount)}</td><td>${fmt(c.remaining_amount)}</td><td>${esc(chargeLabels[c.calculated_status]||c.calculated_status)}<div>${esc(c.notes||'')}</div></td><td><button type="button" data-action="edit" data-id="${esc(c.id)}">Editar</button> <button type="button" data-action="manual" data-id="${esc(c.id)}">Baixa manual</button> <button type="button" data-action="pix" data-id="${esc(c.id)}">Pix / vínculos</button></td></tr>`).join('')}</tbody></table></div><div id="mc-detail"></div>`;
+ const run=async fn=>{try{await fn();}catch(e){alert(e.message||String(e));}finally{await loadMonthlyCharges();}};
+ const update=async(c,p)=>{const rows=await chargeRead(sb.from('monthly_charges').update(p).eq('id',c.id).select('id'));if(rows.length!==1)throw new Error('Cobrança não atualizada.');};
+ $('mc-all').onchange=e=>out.querySelectorAll('.mc-check').forEach(x=>x.checked=e.target.checked);
+ for(const [id,mode] of [['mc-bulk','paid'],['mc-exempt','exempt'],['mc-na','na']]) $(id).onclick=()=>{const selected=charges.filter(c=>[...out.querySelectorAll('.mc-check:checked')].some(x=>x.value===c.id));if(!selected.length)return alert('Selecione cobranças.');if(selected.some(c=>Number(c.linked_paid_amount)>0 || (mode!=='paid'&&Number(c.manual_paid_amount)>0) || (mode==='paid'&&['isento','nao_se_aplica'].includes(c.calculated_status))))return alert('Há cobranças incompatíveis na seleção. Confira os pagamentos e isenções.');if(!confirm(`Atualizar ${selected.length} cobranças?`))return;run(async()=>{let done=0;try{for(const c of selected){if(mode==='paid')await chargeRpc('set_manual_monthly_payment',{p_monthly_charge_id:c.id,p_amount:Number(c.amount)});else await update(c,{status:mode==='exempt'?'isento':'pendente',not_applicable:mode==='na'});done++;}}catch(e){throw new Error(`${done} atualizadas antes do erro: ${e.message}`);}alert(`${done} atualizadas.`);});};
+ out.querySelectorAll('[data-action]').forEach(b=>b.onclick=async()=>{const c=charges.find(x=>x.id===b.dataset.id);try{
+ if(b.dataset.action==='manual'){const n=askMoney('Total pago manualmente (0 para desfazer):',c.manual_paid_amount);if(n!==null)await run(()=>chargeRpc('set_manual_monthly_payment',{p_monthly_charge_id:c.id,p_amount:n}));}
+ if(b.dataset.action==='edit'){if(Number(c.linked_paid_amount)>0||Number(c.manual_paid_amount)>0)return alert('Desfaça os pagamentos antes de editar a cobrança.');const n=askMoney('Valor da cobrança:',c.amount);if(n===null)return;const state=prompt('Situação: 1 = cobrar, 2 = isento, 3 = não se aplica',c.not_applicable?'3':c.status==='isento'?'2':'1');if(state===null)return;if(!['1','2','3'].includes(state))throw new Error('Situação inválida.');const notes=prompt('Observações:',c.notes||'');if(notes===null)return;await run(()=>update(c,{amount:n,status:state==='2'?'isento':'pendente',not_applicable:state==='3',notes}));}
+ if(b.dataset.action==='pix')await showChargePix(c,run);
+ }catch(e){alert(e.message||String(e));}});
+ }catch(e){out.textContent='Erro: '+e.message;}
 }
-$('generate-charges').addEventListener('click', async () => {
-  const month = $('charges-month').value;
+async function showChargePix(c,run){
+ const detail=$('mc-detail');detail.textContent='Carregando Pix...';
+ const [tx,alloc]=await Promise.all([chargeRead(sb.from('transactions').select('id,date,description,amount').eq('athlete_id',c.athlete_id).eq('category','Mensalidade').eq('type','entrada').eq('status','pago').eq('user_id',c.user_id).order('date',{ascending:false})),chargeRead(sb.from('monthly_payment_allocations').select('*'))]);
+ if(!detail.isConnected)return;
+ const used=id=>alloc.filter(a=>String(a.transaction_id)===String(id)).reduce((s,a)=>s+Number(a.amount),0);
+ detail.innerHTML=`<h3>Pix da atleta — ${esc(c.month)}</h3><p>Escolha o Pix e o valor referente a este mês. A data do Pix não define o mês.</p>${alloc.filter(a=>a.monthly_charge_id===c.id).map(a=>`<p>Pix #${esc(a.transaction_id)} — ${fmt(a.amount)} <button type="button" data-remove="${esc(a.id)}">Desvincular</button></p>`).join('')}<select id="mc-pix"><option value="">Escolher Pix</option>${tx.filter(t=>Number(t.amount)-used(t.id)>0.005).map(t=>`<option value="${esc(t.id)}">${esc(t.date)} — ${esc(t.description)} — disponível ${fmt(Number(t.amount)-used(t.id))}</option>`).join('')}</select><button type="button" id="mc-link">${Number(c.manual_paid_amount)>0?'Conciliar baixa manual':'Vincular Pix'}</button>`;
+ detail.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{if(confirm('Desvincular sem excluir o Pix?'))run(()=>chargeRpc('remove_monthly_payment',{p_allocation_id:b.dataset.remove}));});
+ $('mc-link').onclick=()=>{const id=$('mc-pix').value;if(!id)return alert('Escolha um Pix.');const t=tx.find(x=>String(x.id)===id);try{const n=askMoney('Valor a vincular:',Number(c.manual_paid_amount)>0?c.manual_paid_amount:Math.min(Number(c.remaining_amount),Number(t.amount)-used(t.id)));if(n===null||n===0)return;if(!confirm('Confirmar vínculo com este mês?'))return;run(()=>chargeRpc(Number(c.manual_paid_amount)>0?'reconcile_manual_payment':'allocate_monthly_payment',{p_transaction_id:id,p_monthly_charge_id:c.id,p_amount:n}));}catch(e){alert(e.message);}};
+ detail.scrollIntoView({block:'nearest'});
+}
+$('generate-charges').onclick=async()=>{
+ const month=$('charges-month').value;if(!/^\d{4}-\d{2}$/.test(month))return alert('Escolha o mês.');const b=$('generate-charges');b.disabled=true;
+ try{const {data:{user}}=await sb.auth.getUser();if(!user)throw new Error('Faça login.');const year=Number(month.slice(0,4)),m=Number(month.slice(5));const [athletes,rules,existing]=await Promise.all([chargeRead(sb.from('athletes').select('*').eq('season',year).eq('user_id',user.id)),chargeRead(sb.from('monthly_fee_rules').select('*').eq('season',year).eq('month',m).eq('user_id',user.id)),chargeRead(sb.from('monthly_charges').select('athlete_id').eq('month',month))]);const known=new Set(existing.map(c=>c.athlete_id));const rows=[],skipped=[];for(const a of athletes){if(known.has(a.id))continue;if(a.joined_on&&a.joined_on.slice(0,7)>month||a.left_on&&a.left_on.slice(0,7)<month)continue;const rule=rules.find(r=>r.team===a.team);if(!a.joined_on||(!a.is_active&&!a.left_on)||!rule){skipped.push(a.name);continue;}const amount=Math.round(Number(rule.amount)*(1-Number(a.scholarship_percentage||0)/100)*100)/100;rows.push({user_id:user.id,athlete_id:a.id,month,amount,status:amount===0?'isento':'pendente'});}if(!confirm(`Criar ${rows.length} cobranças? ${skipped.length} sem datas ou regra serão ignoradas. Cobranças existentes serão preservadas.\n${skipped.join(', ')}`))return;if(rows.length){const {error}=await sb.from('monthly_charges').insert(rows);if(error)throw error;}alert(`${rows.length} cobranças criadas.`);await loadMonthlyCharges();}catch(e){alert(e.message);}finally{b.disabled=false;}
+};
 
-  if (!month) {
-    alert('Selecione um mês.');
-    return;
-  }
-
-  const button = $('generate-charges');
-  button.disabled = true;
-  button.textContent = 'Gerando cobranças...';
-
-  try {
-    const { data: { user }, error: userError } = await sb.auth.getUser();
-
-    if (userError || !user) {
-      throw new Error('Faça login novamente.');
-    }
-
-    const { data: athletes, error: athleteError } = await sb
-      .from('athletes')
-      .select('*')
-      .eq('season', 2026)
-      .eq('is_active', true);
-
-    if (athleteError) throw athleteError;
-
-    const { data: existing, error: existingError } = await sb
-      .from('monthly_charges')
-      .select('athlete_id')
-      .eq('month', month);
-
-    if (existingError) throw existingError;
-
-    const alreadyCreated = new Set(
-      (existing || []).map(x => String(x.athlete_id))
-    );
-
-    const base = month.endsWith('-07') ? 30 : 60;
-
-    const newCharges = (athletes || [])
-      .filter(a => !alreadyCreated.has(String(a.id)))
-      .map(a => ({
-        user_id: user.id,
-        athlete_id: a.id,
-        month,
-        amount: Number(
-          (base * (1 - Number(a.scholarship_percentage || 0) / 100))
-            .toFixed(2)
-        ),
-        status: 'pendente'
-      }));
-
-    if (!newCharges.length) {
-      alert('Todas as cobranças desse mês já foram criadas.');
-      await loadMonthlyCharges();
-      return;
-    }
-
-    const { error: insertError } = await sb
-      .from('monthly_charges')
-      .insert(newCharges);
-
-    if (insertError) throw insertError;
-
-    alert(`${newCharges.length} cobranças criadas com sucesso!`);
-
-    await loadMonthlyCharges();
-
-  } catch (err) {
-    alert('Erro ao gerar cobranças: ' + err.message);
-  } finally {
-    button.disabled = false;
-    button.textContent = 'Gerar cobranças do mês';
-  }
-});
 async function init() {
   const { data: { session } } = await sb.auth.getSession();
 
@@ -733,7 +619,8 @@ $('athlete-form').addEventListener('submit', async e => {
     team: $('athlete-team').value.trim() || null,
     scholarship_percentage: Number($('athlete-scholarship').value),
     season: Number($('athlete-season').value),
-    is_active: true
+    is_active: true,
+    joined_on: $('athlete-joined').value || null
   };
 
   const { error } = await sb
@@ -838,6 +725,11 @@ async function loadAthletes() {
         return;
       }
 
+      const joined = prompt('Data de entrada (AAAA-MM-DD; vazio se desconhecida):', athlete.joined_on || '');
+      if (joined === null) return;
+      const left = prompt('Data de saída (AAAA-MM-DD; vazio se não saiu):', athlete.left_on || '');
+      if (left === null) return;
+      if ([joined,left].some(d=>d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) || (joined && left && left < joined)) return alert('Datas inválidas.');
       const scholarship = Number(newScholarship);
       const season = Number(newSeason);
 
@@ -861,7 +753,10 @@ async function loadAthletes() {
           name: newName.trim(),
           team: newTeam.trim() || null,
           scholarship_percentage: scholarship,
-          season: season
+          season: season,
+          joined_on: joined || null,
+          left_on: left || null,
+          is_active: left ? false : athlete.is_active
         })
         .eq('id', athlete.id);
 
