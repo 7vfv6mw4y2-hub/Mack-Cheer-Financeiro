@@ -1104,3 +1104,76 @@ async function openAthleteFinancial(athleteId) {
     panel.classList.add('hidden');
   };
 }
+
+
+// REVISÃO DE SUGESTÕES PARA MOVIMENTAÇÕES JÁ CADASTRADAS
+$('load-transaction-suggestions').addEventListener('click', loadTransactionSuggestions);
+
+function normalizeText(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+function suggestTransactionCategory(tx) {
+  const text = normalizeText((tx.description || '') + ' ' + (tx.payer || ''));
+  if (tx.type === 'entrada') {
+    if (/mensal|mensalidade|pix.*(maia|atleta)|contribu|pagamento.*(mack|cheer)/.test(text)) return 'Arrecadação';
+    if (/inscri|tryout|seletiva/.test(text)) return 'Inscrição';
+    if (/patrocin|sponsor|apoio/.test(text)) return 'Patrocínio';
+    if (/uniform|bow|cheermix|cheer mix/.test(text)) return 'Uniforme';
+    if (/reembolso/.test(text)) return 'Reembolso';
+    return null;
+  }
+  if (/uniform|bow|cheermix|cheer mix|camis|top|short/.test(text)) return 'Uniforme';
+  if (/transporte|uber|99|passagem|combust|estacion/.test(text)) return 'Transporte';
+  if (/material|papel|impress| fita|cola|cartaz/.test(text)) return 'Materiais';
+  if (/campeon|compet|inscri/.test(text)) return 'Inscrição';
+  if (/aliment|comida|lanche|restaurante/.test(text)) return 'Alimentação';
+  if (/showcase|evento/.test(text)) return 'Evento / Showcase';
+  if (/reembolso/.test(text)) return 'Reembolso';
+  return null;
+}
+
+function suggestTransactionAthlete(tx, athletes) {
+  const text = normalizeText((tx.description || '') + ' ' + (tx.payer || ''));
+  return athletes.find(a => {
+    const name = normalizeText(a.name).trim();
+    return name && text.includes(name);
+  }) || null;
+}
+
+async function loadTransactionSuggestions() {
+  const button = $('load-transaction-suggestions');
+  const msg = $('suggestions-msg');
+  const container = $('transaction-suggestions');
+  button.disabled = true; button.textContent = 'Analisando...';
+  msg.textContent = 'Buscando movimentações e padrões...';
+  try {
+    const [{ data: transactions, error: txError }, { data: athletes, error: athleteError }] = await Promise.all([
+      sb.from('transactions').select('*').order('date', { ascending: false }),
+      sb.from('athletes').select('id,name')
+    ]);
+    if (txError) throw txError; if (athleteError) throw athleteError;
+    const suggestions = (transactions || []).map(tx => {
+      const category = suggestTransactionCategory(tx);
+      const athlete = !tx.athlete_id ? suggestTransactionAthlete(tx, athletes || []) : null;
+      return { tx, category: category && category !== tx.category ? category : null, athlete };
+    }).filter(s => s.category || s.athlete);
+    if (!suggestions.length) { container.innerHTML = '<p>Não encontrei sugestões confiáveis por descrição/nome. Movimentações não foram alteradas.</p>'; msg.textContent = 'Análise concluída.'; return; }
+    container.innerHTML = `<p><strong>${suggestions.length}</strong> movimentação(ões) com sugestão. Marque as que deseja aplicar.</p><div class="table-wrap"><table><thead><tr><th>Aplicar</th><th>Data</th><th>Descrição / pagador</th><th>Valor</th><th>Categoria sugerida</th><th>Atleta sugerida</th></tr></thead><tbody>${suggestions.map(s => `<tr><td><input type="checkbox" class="suggestion-check" data-id="${s.tx.id}" checked></td><td>${esc(s.tx.date)}</td><td>${esc(s.tx.description)}${s.tx.payer ? '<small>'+esc(s.tx.payer)+'</small>' : ''}</td><td>${fmt(s.tx.amount)}</td><td>${s.category ? esc(s.category) : '—'}</td><td>${s.athlete ? esc(s.athlete.name) : '—'}</td></tr>`).join('')}</tbody></table></div><button type="button" id="apply-transaction-suggestions">Aplicar sugestões selecionadas</button>`;
+    $('apply-transaction-suggestions').addEventListener('click', async () => {
+      const selected = [...container.querySelectorAll('.suggestion-check:checked')].map(c => suggestions.find(s => String(s.tx.id) === c.dataset.id)).filter(Boolean);
+      if (!selected.length) { alert('Marque pelo menos uma movimentação.'); return; }
+      if (!confirm(`Aplicar sugestões em ${selected.length} movimentação(ões)?`)) return;
+      const applyButton = $('apply-transaction-suggestions'); applyButton.disabled = true; applyButton.textContent = 'Salvando...';
+      for (const s of selected) {
+        const update = {}; if (s.category) update.category = s.category; if (s.athlete) update.athlete_id = s.athlete.id;
+        const { error } = await sb.from('transactions').update(update).eq('id', s.tx.id);
+        if (error) { alert('Erro ao salvar: ' + error.message); applyButton.disabled = false; applyButton.textContent = 'Aplicar sugestões selecionadas'; return; }
+      }
+      alert('Sugestões aplicadas!'); await load(); await loadTransactionSuggestions();
+    });
+    msg.textContent = 'Análise concluída. Confira antes de aplicar.';
+  } catch (error) {
+    msg.textContent = 'Erro ao analisar: ' + error.message;
+  } finally { button.disabled = false; button.textContent = 'Analisar movimentações existentes'; }
+}
