@@ -86,6 +86,16 @@
 
     <p id="suggestions-msg" class="muted"></p>
     <div id="transaction-suggestions"></div>
+    <h3>Classificar movimentações em massa</h3>
+    <div class="formgrid">
+      <label>Mês <input type="month" id="bulk-month"></label>
+      <label>Valor exato <input type="number" min="0" step="0.01" id="bulk-amount"></label>
+      <label>Categoria atual <select id="bulk-current"><option value="">Todas</option></select></label>
+      <label>Buscar nome ou descrição <input id="bulk-search"></label>
+      <button type="button" id="bulk-load">Buscar movimentações</button>
+      <label>Nova categoria <select id="bulk-category"></select></label>
+    </div>
+    <div id="bulk-results"></div>
   </div>
 
   <div class="panel">
@@ -102,6 +112,7 @@
       <input id="date" type="date" required>
 
       <select id="category">
+        <option>Mensalidade</option>
         <option>Rifa</option>
         <option>Seletiva</option>
         <option>Inscrição do Campeonato</option>
@@ -305,6 +316,6 @@
 </section>
 </main>
 
-<script type="module" src="app.js?v=2"></script>
+<script type="module" src="app.js?v=3"></script>
 </body>
 </html>
