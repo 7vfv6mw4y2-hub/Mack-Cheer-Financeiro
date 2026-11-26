@@ -749,7 +749,6 @@ $('athlete-form').addEventListener('submit', async e => {
   await loadAthletes();
 });
 
-
 async function loadAthletes() {
   const { data, error } = await sb
     .from('athletes')
@@ -773,7 +772,8 @@ async function loadAthletes() {
         <option value="${a.id}">${esc(a.name)}</option>
       `;
     });
-   $('athlete-list').innerHTML = athletes.length
+
+  $('athlete-list').innerHTML = athletes.length
     ? athletes.map(a => `
         <div style="padding:12px 0;border-bottom:1px solid #ddd">
           <button
@@ -784,6 +784,16 @@ async function loadAthletes() {
           >
             ${esc(a.name)}
           </button>
+
+          <button
+            type="button"
+            class="edit-athlete-btn secondary"
+            data-id="${a.id}"
+            style="margin-left:10px"
+          >
+            Editar
+          </button>
+
           <p class="muted">
             Equipe: ${esc(a.team || 'Não informada')} |
             Bolsa: ${a.scholarship_percentage}% |
@@ -796,7 +806,71 @@ async function loadAthletes() {
   document.querySelectorAll('.athlete-profile-btn').forEach(button => {
     button.onclick = () => openAthleteFinancial(button.dataset.id);
   });
-    await loadAthleteTransactions();
+
+  document.querySelectorAll('.edit-athlete-btn').forEach(button => {
+    button.onclick = async () => {
+      const athlete = athletes.find(a => String(a.id) === button.dataset.id);
+
+      if (!athlete) return;
+
+      const newName = prompt('Nome da atleta:', athlete.name);
+      if (newName === null) return;
+
+      const newTeam = prompt('Equipe:', athlete.team || '');
+      if (newTeam === null) return;
+
+      const newScholarship = prompt(
+        'Bolsa (%):',
+        athlete.scholarship_percentage
+      );
+      if (newScholarship === null) return;
+
+      const newSeason = prompt('Temporada:', athlete.season);
+      if (newSeason === null) return;
+
+      if (!newName.trim()) {
+        alert('O nome não pode ficar vazio.');
+        return;
+      }
+
+      const scholarship = Number(newScholarship);
+      const season = Number(newSeason);
+
+      if (
+        isNaN(scholarship) ||
+        scholarship < 0 ||
+        scholarship > 100
+      ) {
+        alert('A bolsa precisa ser um número entre 0 e 100.');
+        return;
+      }
+
+      if (isNaN(season)) {
+        alert('A temporada precisa ser um número válido.');
+        return;
+      }
+
+      const { error: updateError } = await sb
+        .from('athletes')
+        .update({
+          name: newName.trim(),
+          team: newTeam.trim() || null,
+          scholarship_percentage: scholarship,
+          season: season
+        })
+        .eq('id', athlete.id);
+
+      if (updateError) {
+        alert('Erro ao editar atleta: ' + updateError.message);
+        return;
+      }
+
+      alert('Atleta atualizada com sucesso!');
+      await loadAthletes();
+    };
+  });
+
+  await loadAthleteTransactions();
 }
 async function loadAthleteTransactions() {
   const container = $('athlete-transactions-list');
