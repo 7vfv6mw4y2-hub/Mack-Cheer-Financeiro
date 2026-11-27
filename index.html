@@ -41,6 +41,7 @@
   <button type="button" class="tab" data-tab="extras">Cobranças extras</button>
 <button type="button" class="tab" data-tab="rifas">Rifas</button>
 <button type="button" class="tab" data-tab="estornos">Estornos</button>
+<button type="button" class="tab" data-tab="blow">Treinos Blow</button>
 </nav>
 
 <div id="inicio" class="tab-content">
@@ -318,6 +319,7 @@
 <div class="formgrid"><label>Temporada <input id="ex-year" type="number" value="2026"></label><label>Categoria <select id="ex-cat"><option value="">Todas</option></select></label><label>Atleta <input id="ex-search" placeholder="Buscar nome"></label><label><input type="checkbox" id="ex-review"> Somente a revisar</label><button type="button" id="ex-refresh">Atualizar</button></div><div id="ex-summary" class="cards"></div><div id="ex-list"></div><div id="ex-detail"></div></div></div>
 <div id="rifas" class="tab-content hidden"><div class="panel"><h2>Rifas</h2><p>Créditos das atletas e recebimentos do extrato são controles separados.</p><label>Temporada <input id="rf-year" type="number" value="2026"></label><button id="rf-refresh" type="button">Atualizar</button><label><input id="rf-pending" type="checkbox"> Somente a revisar</label><div id="rf-list"></div></div></div>
 <div id="estornos" class="tab-content hidden"><div class="panel"><h2>Estornos de Pix</h2><p>Registrar devolução não cria uma saída no extrato. Vincule a saída existente quando confirmada.</p><button id="re-refresh" type="button">Atualizar</button><div id="re-list"></div></div></div>
+<div id="blow" class="tab-content hidden"><div class="panel"><h2>Treinos Blow</h2><p>R$ 10,00 por participante. Cadastre somente presenças confirmadas.</p><label>Data do treino <input type="date" id="bl-date"></label><button type="button" id="bl-open">Abrir lista de presença</button><div id="bl-edit"></div><h3>Histórico</h3><label>Temporada <input type="number" id="bl-year" value="2026"></label><button type="button" id="bl-refresh">Atualizar</button><div id="bl-history"></div></div></div>
 <div id="por-atleta" class="tab-content hidden">
   <div class="panel">
     <h2>Financeiro por atleta</h2>
@@ -329,6 +331,6 @@
 </section>
 </main>
 
-<script type="module" src="app.js?v=6"></script>
+<script type="module" src="app.js?v=7"></script>
 </body>
 </html>
