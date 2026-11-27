@@ -149,26 +149,26 @@ async function loadMonthlyCharges() {
  charges.sort((a,b)=>(map.get(a.athlete_id)?.name||'').localeCompare(map.get(b.athlete_id)?.name||'','pt-BR'));
  const valid=charges.filter(c=>!['isento','nao_se_aplica'].includes(c.calculated_status));
  $('charges-summary').innerHTML=[['Previsto',valid.reduce((s,c)=>s+Number(c.amount),0)],['Confirmado (inclui manual)',valid.reduce((s,c)=>s+Number(c.total_paid),0)],['Em aberto / a conferir',valid.reduce((s,c)=>s+Number(c.remaining_amount),0)]].map(([l,v])=>`<article class="card"><span>${l}</span><strong>${fmt(v)}</strong></article>`).join('');
- out.innerHTML=`<p>Confira as cobranças antigas antes de cobrar. Baixas manuais não alteram o caixa.</p><button type="button" id="mc-bulk">Marcar selecionadas como pagas manualmente</button> <button type="button" id="mc-exempt">Isentar selecionadas</button> <button type="button" id="mc-na">Marcar selecionadas como não se aplica</button><div class="table-wrap"><table><thead><tr><th><input type="checkbox" id="mc-all"></th><th>Atleta / equipe</th><th>Valor</th><th>Manual</th><th>Extrato</th><th>Em aberto</th><th>Situação</th><th>Ações</th></tr></thead><tbody>${charges.map(c=>`<tr><td><input type="checkbox" class="mc-check" value="${esc(c.id)}"></td><td>${esc(map.get(c.athlete_id)?.name||'Atleta')}<div class="muted">${esc(map.get(c.athlete_id)?.team||'')}</div></td><td>${fmt(c.amount)}</td><td>${fmt(c.manual_paid_amount)}</td><td>${fmt(c.linked_paid_amount)}</td><td>${fmt(c.remaining_amount)}</td><td>${esc(chargeLabels[c.calculated_status]||c.calculated_status)}<div>${esc(c.notes||'')}</div></td><td><button type="button" data-action="edit" data-id="${esc(c.id)}">Editar</button> <button type="button" data-action="manual" data-id="${esc(c.id)}">Baixa manual</button> <button type="button" data-action="pix" data-id="${esc(c.id)}">Pix / vínculos</button></td></tr>`).join('')}</tbody></table></div><div id="mc-detail"></div>`;
+ out.innerHTML=`<p>Confira as cobranças antigas antes de cobrar. Baixas manuais não alteram o caixa.</p><button type="button" id="mc-bulk">Marcar selecionadas como pagas manualmente</button> <button type="button" id="mc-exempt">Isentar selecionadas</button> <button type="button" id="mc-na">Marcar selecionadas como não se aplica</button><div class="table-wrap"><table><thead><tr><th><input type="checkbox" id="mc-all"></th><th>Atleta / equipe</th><th>Valor</th><th>Manual</th><th>Extrato</th><th>Em aberto</th><th>Situação</th><th>Ações</th></tr></thead><tbody>${charges.map(c=>`<tr><td><input type="checkbox" class="mc-check" value="${esc(c.id)}"></td><td>${esc(map.get(c.athlete_id)?.name||'Atleta')}<div class="muted">${esc(map.get(c.athlete_id)?.team||'')}</div></td><td>${fmt(c.amount)}</td><td>${fmt(c.manual_paid_amount)}</td><td>${fmt(c.linked_paid_amount)}<br>Rifa: ${fmt(c.raffle_paid_amount)}</td><td>${fmt(c.remaining_amount)}</td><td>${esc(chargeLabels[c.calculated_status]||c.calculated_status)}<div>${esc(c.notes||'')}</div></td><td><button type="button" data-action="edit" data-id="${esc(c.id)}">Editar</button> <button type="button" data-action="manual" data-id="${esc(c.id)}">Baixa manual</button> <button type="button" data-action="pix" data-id="${esc(c.id)}">Pix / vínculos</button></td></tr>`).join('')}</tbody></table></div><div id="mc-detail"></div>`;
  const run=async fn=>{try{await fn();}catch(e){alert(e.message||String(e));}finally{await loadMonthlyCharges();}};
  const update=async(c,p)=>{const rows=await chargeRead(sb.from('monthly_charges').update(p).eq('id',c.id).select('id'));if(rows.length!==1)throw new Error('Cobrança não atualizada.');};
  $('mc-all').onchange=e=>out.querySelectorAll('.mc-check').forEach(x=>x.checked=e.target.checked);
- for(const [id,mode] of [['mc-bulk','paid'],['mc-exempt','exempt'],['mc-na','na']]) $(id).onclick=()=>{const selected=charges.filter(c=>[...out.querySelectorAll('.mc-check:checked')].some(x=>x.value===c.id));if(!selected.length)return alert('Selecione cobranças.');if(selected.some(c=>Number(c.linked_paid_amount)>0 || (mode!=='paid'&&Number(c.manual_paid_amount)>0) || (mode==='paid'&&['isento','nao_se_aplica'].includes(c.calculated_status))))return alert('Há cobranças incompatíveis na seleção. Confira os pagamentos e isenções.');if(!confirm(`Atualizar ${selected.length} cobranças?`))return;run(async()=>{let done=0;try{for(const c of selected){if(mode==='paid')await chargeRpc('set_manual_monthly_payment',{p_monthly_charge_id:c.id,p_amount:Number(c.amount)});else await update(c,{status:mode==='exempt'?'isento':'pendente',not_applicable:mode==='na'});done++;}}catch(e){throw new Error(`${done} atualizadas antes do erro: ${e.message}`);}alert(`${done} atualizadas.`);});};
+ for(const [id,mode] of [['mc-bulk','paid'],['mc-exempt','exempt'],['mc-na','na']]) $(id).onclick=()=>{const selected=charges.filter(c=>[...out.querySelectorAll('.mc-check:checked')].some(x=>x.value===c.id));if(!selected.length)return alert('Selecione cobranças.');if(selected.some(c=>(Number(c.linked_paid_amount)>0||Number(c.raffle_paid_amount)>0) || (mode!=='paid'&&Number(c.manual_paid_amount)>0) || (mode==='paid'&&['isento','nao_se_aplica'].includes(c.calculated_status))))return alert('Há cobranças incompatíveis na seleção. Confira os pagamentos e isenções.');if(!confirm(`Atualizar ${selected.length} cobranças?`))return;run(async()=>{let done=0;try{for(const c of selected){if(mode==='paid')await chargeRpc('set_manual_monthly_payment',{p_monthly_charge_id:c.id,p_amount:Number(c.amount)});else await update(c,{status:mode==='exempt'?'isento':'pendente',not_applicable:mode==='na'});done++;}}catch(e){throw new Error(`${done} atualizadas antes do erro: ${e.message}`);}alert(`${done} atualizadas.`);});};
  out.querySelectorAll('[data-action]').forEach(b=>b.onclick=async()=>{const c=charges.find(x=>x.id===b.dataset.id);try{
  if(b.dataset.action==='manual'){const n=askMoney('Total pago manualmente (0 para desfazer):',c.manual_paid_amount);if(n!==null)await run(()=>chargeRpc('set_manual_monthly_payment',{p_monthly_charge_id:c.id,p_amount:n}));}
- if(b.dataset.action==='edit'){if(Number(c.linked_paid_amount)>0||Number(c.manual_paid_amount)>0)return alert('Desfaça os pagamentos antes de editar a cobrança.');const n=askMoney('Valor da cobrança:',c.amount);if(n===null)return;const state=prompt('Situação: 1 = cobrar, 2 = isento, 3 = não se aplica',c.not_applicable?'3':c.status==='isento'?'2':'1');if(state===null)return;if(!['1','2','3'].includes(state))throw new Error('Situação inválida.');const notes=prompt('Observações:',c.notes||'');if(notes===null)return;await run(()=>update(c,{amount:n,status:state==='2'?'isento':'pendente',not_applicable:state==='3',notes}));}
+ if(b.dataset.action==='edit'){if((Number(c.linked_paid_amount)>0||Number(c.raffle_paid_amount)>0)||Number(c.manual_paid_amount)>0)return alert('Desfaça os pagamentos antes de editar a cobrança.');const n=askMoney('Valor da cobrança:',c.amount);if(n===null)return;const state=prompt('Situação: 1 = cobrar, 2 = isento, 3 = não se aplica',c.not_applicable?'3':c.status==='isento'?'2':'1');if(state===null)return;if(!['1','2','3'].includes(state))throw new Error('Situação inválida.');const notes=prompt('Observações:',c.notes||'');if(notes===null)return;await run(()=>update(c,{amount:n,status:state==='2'?'isento':'pendente',not_applicable:state==='3',notes}));}
  if(b.dataset.action==='pix')await showChargePix(c,run);
  }catch(e){alert(e.message||String(e));}});
  }catch(e){out.textContent='Erro: '+e.message;}
 }
 async function showChargePix(c,run){
  const detail=$('mc-detail');detail.textContent='Carregando Pix...';
- const [tx,alloc]=await Promise.all([chargeRead(sb.from('transactions').select('id,date,description,amount').eq('athlete_id',c.athlete_id).eq('category','Mensalidade').eq('type','entrada').eq('status','pago').eq('user_id',c.user_id).order('date',{ascending:false})),chargeRead(sb.from('monthly_payment_allocations').select('*'))]);
+ const [tx,alloc,history]=await Promise.all([chargeRead(sb.from('transaction_payment_balances').select('*').eq('athlete_id',c.athlete_id).eq('user_id',c.user_id).in('category',['Mensalidade','Inscrição do Campeonato']).gt('available_amount',0).order('date',{ascending:false})),chargeRead(sb.from('monthly_payment_allocations').select('*').eq('monthly_charge_id',c.id)),chargeRead(sb.from('raffle_credit_allocations').select('*').eq('monthly_charge_id',c.id))]);
+ const linked=alloc.length?await chargeRead(sb.from('transactions').select('id,date,amount,description').in('id',alloc.map(a=>a.transaction_id))):[];
  if(!detail.isConnected)return;
- const used=id=>alloc.filter(a=>String(a.transaction_id)===String(id)).reduce((s,a)=>s+Number(a.amount),0);
- detail.innerHTML=`<h3>Pix da atleta — ${esc(c.month)}</h3><p>Escolha o Pix e o valor referente a este mês. A data do Pix não define o mês.</p>${alloc.filter(a=>a.monthly_charge_id===c.id).map(a=>`<p>Pix #${esc(a.transaction_id)} — ${fmt(a.amount)} <button type="button" data-remove="${esc(a.id)}">Desvincular</button></p>`).join('')}<select id="mc-pix"><option value="">Escolher Pix</option>${tx.filter(t=>Number(t.amount)-used(t.id)>0.005).map(t=>`<option value="${esc(t.id)}">${esc(t.date)} — ${esc(t.description)} — disponível ${fmt(Number(t.amount)-used(t.id))}</option>`).join('')}</select><button type="button" id="mc-link">${Number(c.manual_paid_amount)>0?'Conciliar baixa manual':'Vincular Pix'}</button>`;
- detail.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{if(confirm('Desvincular sem excluir o Pix?'))run(()=>chargeRpc('remove_monthly_payment',{p_allocation_id:b.dataset.remove}));});
- $('mc-link').onclick=()=>{const id=$('mc-pix').value;if(!id)return alert('Escolha um Pix.');const t=tx.find(x=>String(x.id)===id);try{const n=askMoney('Valor a vincular:',Number(c.manual_paid_amount)>0?c.manual_paid_amount:Math.min(Number(c.remaining_amount),Number(t.amount)-used(t.id)));if(n===null||n===0)return;if(!confirm('Confirmar vínculo com este mês?'))return;run(()=>chargeRpc(Number(c.manual_paid_amount)>0?'reconcile_manual_payment':'allocate_monthly_payment',{p_transaction_id:id,p_monthly_charge_id:c.id,p_amount:n}));}catch(e){alert(e.message);}};
+ detail.innerHTML=`<h3>Pix da atleta — ${esc(c.month)}</h3><p>A data do Pix não define o mês. Saldo desconta todos os vínculos, rifas e estornos.</p>${alloc.map(a=>{const t=linked.find(x=>String(x.id)===String(a.transaction_id));return `<p>${esc(t?.date||'')} — Pix ${fmt(t?.amount)} — vinculado ${fmt(a.amount)} <button type="button" data-remove="${esc(a.id)}">Desvincular</button></p>`}).join('')}${history.map(a=>`<p>Crédito de rifa: ${fmt(a.amount)}</p>`).join('')}<select id="mc-pix"><option value="">Escolher Pix</option>${tx.map(t=>`<option value="${esc(t.id)}">${esc(t.date)} — ${esc(t.description)} — disponível ${fmt(t.available_amount)}</option>`).join('')}</select><button type="button" id="mc-link">${Number(c.manual_paid_amount)>0?'Conciliar baixa manual':'Vincular Pix'}</button>`;
+ detail.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{if(confirm('Desvincular sem excluir o Pix? A baixa manual anterior não será restaurada.'))run(()=>chargeRpc('remove_monthly_payment',{p_allocation_id:b.dataset.remove}));});
+ $('mc-link').onclick=()=>{const t=tx.find(x=>String(x.id)===$('mc-pix').value);if(!t)return alert('Escolha um Pix.');try{const manual=Number(c.manual_paid_amount);const n=askMoney('Valor a vincular:',manual||Math.min(Number(c.remaining_amount),Number(t.available_amount)));if(n===null||!n)return;if(n>Number(t.available_amount)|| (manual?n!==manual:n>Number(c.remaining_amount)))throw new Error('Valor incompatível com o saldo ou baixa manual.');if(confirm('Confirmar vínculo com este mês?'))run(()=>chargeRpc(manual?'reconcile_manual_payment':'allocate_monthly_payment',{p_transaction_id:t.id,p_monthly_charge_id:c.id,p_amount:n}));}catch(e){alert(e.message);}};
  detail.scrollIntoView({block:'nearest'});
 }
 $('generate-charges').onclick=async()=>{
@@ -219,22 +219,22 @@ const month = new Date().toISOString().slice(0, 7);
   const paid = all.filter(x => x.status === 'pago');
 
   $('balance').textContent = fmt(
-    paid.reduce((s, x) => s + (x.type === 'entrada' ? x.amount : -x.amount), 0)
+    paid.reduce((s, x) => s + (x.type === 'entrada' ? Number(x.amount) : -Number(x.amount)), 0)
   );
 
   $('income').textContent = fmt(
     paid.filter(x => x.type === 'entrada' && x.date.startsWith(month))
-      .reduce((s, x) => s + x.amount, 0)
+      .reduce((s, x) => s + Number(x.amount), 0)
   );
 
   $('expense').textContent = fmt(
     paid.filter(x => x.type === 'despesa' && x.date.startsWith(month))
-      .reduce((s, x) => s + x.amount, 0)
+      .reduce((s, x) => s + Number(x.amount), 0)
   );
 
   $('pending').textContent = fmt(
     all.filter(x => x.status === 'pendente')
-      .reduce((s, x) => s + x.amount, 0)
+      .reduce((s, x) => s + Number(x.amount), 0)
   );
 
   const reportMonth = $('report-month').value;
@@ -242,11 +242,11 @@ const month = new Date().toISOString().slice(0, 7);
 
   const reportIncome = reportItems
     .filter(x => x.type === 'entrada')
-    .reduce((s, x) => s + x.amount, 0);
+    .reduce((s, x) => s + Number(x.amount), 0);
 
   const reportExpense = reportItems
     .filter(x => x.type === 'despesa')
-    .reduce((s, x) => s + x.amount, 0);
+    .reduce((s, x) => s + Number(x.amount), 0);
 
   $('report-income').textContent = fmt(reportIncome);
   $('report-expense').textContent = fmt(reportExpense);
@@ -337,6 +337,7 @@ document.querySelectorAll('.tab').forEach(button => {
     button.classList.add('active');
     $(button.dataset.tab).classList.remove('hidden');
 
+    if (button.dataset.tab === 'extras') await loadExtras();
     if (button.dataset.tab === 'controle-pagamentos') {
       await loadMonthlyCharges();
     }
@@ -475,8 +476,8 @@ function parseCSV(content) {
 
     
 const rows = parseCSV(text);
-console.log('CONTEÚDO DO CSV:', text.slice(0, 2000));
-console.log('LINHAS IDENTIFICADAS:', parseCSV(text));
+
+
 if (rows.length < 2) {
   throw new Error('O arquivo não possui movimentações.');
 }
@@ -1227,3 +1228,33 @@ if ($('bulk-load')) {
     }catch(e){out.textContent='Erro: '+e.message;}
   };
 }
+
+// Cobranças extras — interface independente do extrato.
+let extraBusy=false;
+async function extraRun(fn){if(extraBusy)return;extraBusy=true;try{await fn();await loadExtras();}catch(e){alert(e.message||String(e));}finally{extraBusy=false;}}
+async function loadExtras(){
+ const out=$('ex-list');out.textContent='Carregando...';$('ex-detail').textContent='';$('ex-summary').textContent='';
+ try{
+ const year=Number($('ex-year').value);const [rows,athletes]=await Promise.all([chargeRead(sb.from('extra_charge_review_balances').select('*').eq('season',year)),chargeRead(sb.from('athletes').select('id,name,team'))]);
+ const names=new Map(athletes.map(a=>[a.id,a.name]));const cat=$('ex-cat').value;$('ex-cat').innerHTML='<option value="">Todas</option>'+[...new Set(rows.map(c=>c.category))].sort().map(c=>`<option>${esc(c)}</option>`).join('');$('ex-cat').value=cat;
+ const shown=rows.filter(c=>(!cat||c.category===cat)&&(!$('ex-review').checked||c.review_pending)&&normalizeText(names.get(c.athlete_id)).includes(normalizeText($('ex-search').value))).sort((a,b)=>(names.get(a.athlete_id)||'').localeCompare(names.get(b.athlete_id)||'','pt-BR'));
+ $('ex-summary').innerHTML=[['Cobrado',shown.reduce((s,c)=>s+Number(c.amount),0)],['Pago',shown.reduce((s,c)=>s+Number(c.total_paid),0)],['Custeado pelo caixa',shown.filter(c=>c.covered_by_cash).reduce((s,c)=>s+Number(c.amount),0)],['Em aberto / a conferir',shown.reduce((s,c)=>s+Number(c.remaining_amount),0)]].map(([l,v])=>`<article class="card"><span>${l}</span><strong>${fmt(v)}</strong></article>`).join('');
+ out.innerHTML=`<p>${shown.length} cobranças • ${shown.filter(c=>c.review_pending).length} a revisar</p><div class="table-wrap"><table><thead><tr><th>Atleta</th><th>Cobrança</th><th>Valor</th><th>Pix</th><th>Manual</th><th>Rifa</th><th>Em aberto</th><th>Situação</th><th>Ações</th></tr></thead><tbody>${shown.map(c=>`<tr><td>${esc(names.get(c.athlete_id)||'Atleta')}</td><td>${esc(c.category)} (${c.installment}/${c.total_installments})</td><td>${fmt(c.amount)}</td><td>${fmt(c.linked_paid_amount)}</td><td>${fmt(c.manual_paid_amount)}</td><td>${fmt(c.raffle_paid_amount)}</td><td>${fmt(c.remaining_amount)}</td><td>${c.covered_by_cash?'Custeado pelo caixa':Number(c.remaining_amount)===0?'Pago':Number(c.total_paid)>0?'Parcial':'Pendente'}<br>${c.review_pending?'A revisar':'Revisado'}<br>${esc(c.settlement_notes||'')}</td><td><button type="button" data-ex="${esc(c.id)}">Gerenciar</button></td></tr>`).join('')}</tbody></table></div>`;
+ out.querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>showExtra(shown.find(c=>c.id===b.dataset.ex),names).catch(e=>alert(e.message)));
+ }catch(e){out.textContent='Erro: '+e.message;}
+}
+async function showExtra(c,names){
+ const d=$('ex-detail');d.textContent='Carregando...';
+ const [tx,alloc,credits,ra]=await Promise.all([chargeRead(sb.from('transaction_payment_balances').select('*').eq('user_id',c.user_id).gt('available_amount',0).order('date',{ascending:false})),chargeRead(sb.from('extra_payment_allocations').select('*').eq('extra_charge_id',c.id)),chargeRead(sb.from('raffle_credit_review_balances').select('*').eq('athlete_id',c.athlete_id).eq('season',c.season).gt('usable_credit',0)),chargeRead(sb.from('raffle_credit_allocations').select('*').eq('extra_charge_id',c.id))]);
+ const linked=alloc.length?await chargeRead(sb.from('transactions').select('id,date,amount').in('id',alloc.map(a=>a.transaction_id))):[];
+ d.innerHTML=`<h3>${esc(names.get(c.athlete_id))} — ${esc(c.description)}</h3><p>Em aberto: ${fmt(c.remaining_amount)} | Manual: ${fmt(c.manual_paid_amount)}</p><button id="ex-manual" type="button">Baixa manual</button> <button id="ex-cash" type="button">${c.covered_by_cash?'Retirar custeio':'Custear pelo caixa'}</button> <button id="ex-mark" type="button">${c.review_pending?'Confirmar revisão':'Reabrir revisão'}</button><h4>Vínculos existentes</h4>${alloc.map(a=>{const t=linked.find(x=>String(x.id)===String(a.transaction_id));return `<p>${esc(t?.date||'')} — Pix ${fmt(t?.amount)} — vinculado ${fmt(a.amount)} <button data-unpix="${esc(a.id)}" type="button">Desvincular</button></p>`}).join('')}${ra.map(a=>`<p>Rifa ${fmt(a.amount)} <button data-unrifa="${esc(a.id)}" type="button">Desvincular</button></p>`).join('')}<h4>Vincular Pix</h4><select id="ex-pix"><option value="">Escolher Pix</option>${tx.filter(t=>!['Rifa','Arrecadação'].includes(t.category)).sort((a,b)=>Number(b.athlete_id===c.athlete_id)-Number(a.athlete_id===c.athlete_id)).map(t=>`<option value="${esc(t.id)}">${esc(t.date)} — ${esc(t.description)} — ${fmt(t.available_amount)} disponível</option>`).join('')}</select><button id="ex-link" type="button">Vincular ao saldo em aberto</button> <button id="ex-reconcile" type="button">Substituir baixa manual</button><h4>Crédito de rifa liberado</h4><select id="ex-credit"><option value="">Escolher crédito</option>${credits.map(r=>`<option value="${esc(r.id)}">${esc(r.description)} — ${fmt(r.usable_credit)}</option>`).join('')}</select><button id="ex-use" type="button">Utilizar crédito</button>`;
+ const act=fn=>()=>extraRun(fn);const args={p_extra_charge_id:c.id};
+ $('ex-manual').onclick=act(async()=>{const n=askMoney('Total manual (0 para desfazer):',c.manual_paid_amount);if(n!==null)await chargeRpc('set_manual_extra_payment',{...args,p_amount:n});});
+ $('ex-cash').onclick=act(async()=>{const notes=prompt('Motivo / observação:',c.settlement_notes||'');if(notes!==null&&confirm('Confirmar alteração de custeio?'))await chargeRpc('set_extra_cash_coverage',{...args,p_covered_by_cash:!c.covered_by_cash,p_notes:notes});});
+ $('ex-mark').onclick=act(async()=>{const notes=prompt('Observação da revisão:',c.settlement_notes||'');if(notes!==null)await chargeRpc('set_extra_review',{...args,p_review_pending:!c.review_pending,p_notes:notes});});
+ for(const [id,manual] of [['ex-link',false],['ex-reconcile',true]])$(id).onclick=act(async()=>{const t=tx.find(t=>String(t.id)===$('ex-pix').value);if(!t)throw new Error('Escolha um Pix.');const max=Math.min(Number(t.available_amount),Number(manual?c.manual_paid_amount:c.remaining_amount));const n=askMoney('Valor:',max);if(n===null)return;if(n<=0||n>max)throw new Error('Valor acima do saldo.');if(confirm('Confirmar vínculo? Confira a atleta e a origem do Pix.'))await chargeRpc(manual?'reconcile_manual_extra_payment':'allocate_extra_payment',{...args,p_transaction_id:t.id,p_amount:n});});
+ $('ex-use').onclick=act(async()=>{const r=credits.find(r=>r.id===$('ex-credit').value);if(!r)throw new Error('Escolha um crédito liberado.');const max=Math.min(Number(r.usable_credit),Number(c.remaining_amount));const n=askMoney('Valor:',max);if(n===null)return;if(n<=0||n>max)throw new Error('Valor inválido.');if(confirm('Utilizar crédito?'))await chargeRpc('allocate_raffle_credit',{...args,p_raffle_credit_id:r.id,p_amount:n});});
+ d.querySelectorAll('[data-unpix]').forEach(b=>b.onclick=act(async()=>{if(confirm('Desvincular Pix? A baixa manual anterior não será restaurada.'))await chargeRpc('remove_extra_payment',{p_allocation_id:b.dataset.unpix});}));
+ d.querySelectorAll('[data-unrifa]').forEach(b=>b.onclick=act(async()=>{if(confirm('Desvincular crédito?'))await chargeRpc('remove_raffle_credit',{p_allocation_id:b.dataset.unrifa});}));d.scrollIntoView({block:'nearest'});
+}
+$('ex-refresh').onclick=loadExtras;for(const id of ['ex-year','ex-cat','ex-review','ex-search'])$(id).onchange=loadExtras;
