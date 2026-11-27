@@ -39,6 +39,8 @@
   <button type="button" class="tab" data-tab="por-atleta">Por atleta</button>
   <button type="button" class="tab" data-tab="controle-pagamentos">Controle de pagamentos</button>
   <button type="button" class="tab" data-tab="extras">Cobranças extras</button>
+<button type="button" class="tab" data-tab="rifas">Rifas</button>
+<button type="button" class="tab" data-tab="estornos">Estornos</button>
 </nav>
 
 <div id="inicio" class="tab-content">
@@ -314,6 +316,8 @@
 <div id="extras" class="tab-content hidden">
 <div class="panel"><h2>Cobranças extras</h2><p>Pagamentos e conferência são independentes. Baixas manuais não alteram o caixa.</p>
 <div class="formgrid"><label>Temporada <input id="ex-year" type="number" value="2026"></label><label>Categoria <select id="ex-cat"><option value="">Todas</option></select></label><label>Atleta <input id="ex-search" placeholder="Buscar nome"></label><label><input type="checkbox" id="ex-review"> Somente a revisar</label><button type="button" id="ex-refresh">Atualizar</button></div><div id="ex-summary" class="cards"></div><div id="ex-list"></div><div id="ex-detail"></div></div></div>
+<div id="rifas" class="tab-content hidden"><div class="panel"><h2>Rifas</h2><p>Créditos das atletas e recebimentos do extrato são controles separados.</p><label>Temporada <input id="rf-year" type="number" value="2026"></label><button id="rf-refresh" type="button">Atualizar</button><label><input id="rf-pending" type="checkbox"> Somente a revisar</label><div id="rf-list"></div></div></div>
+<div id="estornos" class="tab-content hidden"><div class="panel"><h2>Estornos de Pix</h2><p>Registrar devolução não cria uma saída no extrato. Vincule a saída existente quando confirmada.</p><button id="re-refresh" type="button">Atualizar</button><div id="re-list"></div></div></div>
 <div id="por-atleta" class="tab-content hidden">
   <div class="panel">
     <h2>Financeiro por atleta</h2>
@@ -325,6 +329,6 @@
 </section>
 </main>
 
-<script type="module" src="app.js?v=5"></script>
+<script type="module" src="app.js?v=6"></script>
 </body>
 </html>
